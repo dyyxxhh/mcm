@@ -69,6 +69,10 @@ pub(crate) struct LaunchAuthConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct SourceRecord {
     pub(crate) url: String,
+    /// Human-readable name. Auto-generated as "Source 1", "Source 2", … when
+    /// the caller does not supply an explicit `--name`.
+    #[serde(default)]
+    pub(crate) name: String,
     /// ISO-8601 UTC timestamp of when the source was added.
     pub(crate) added_at: String,
 }

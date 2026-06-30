@@ -153,9 +153,12 @@ impl App {
                 let output = Path::new(&name);
                 self.export_mrpack(output)
             }
-            MakeFormat::Curseforge => Err(anyhow::anyhow!(
-                i18n::curseforge_export_not_implemented(self.lang)
-            )),
+            MakeFormat::Curseforge => {
+                let profile = self.active_profile()?;
+                let name = format!("{}.zip", profile.name);
+                let output = Path::new(&name);
+                self.export_curseforge(output)
+            }
         }
     }
 
@@ -343,13 +346,13 @@ fn find_single_mcm(dir: &Path, lang: crate::i18n::Lang) -> Result<PathBuf> {
 
 /// Parse dyyl source text and build a v2 lock.
 ///
-/// This is a simplified parser that extracts `mcm.*` commands from dyyl
-/// source. The full implementation would spawn dyyl with `--host-json`
-/// and collect the streaming protocol events.
+/// Extracts `mcm.*` commands from dyyl source and attaches the source line
+/// number to each step as `source_line` metadata — mirroring what the full
+/// `--host-json` host protocol would provide.
 fn parse_dyyl_to_lock(text: &str) -> Result<McmLock> {
     let mut lock = new_lock("dyyl-build", "1.0.0");
     let mut steps: Vec<LockStep> = Vec::new();
-    for line in text.lines() {
+    for (line_no, line) in text.lines().enumerate() {
         let trimmed = line.trim();
         // Skip comments and empty lines.
         if trimmed.starts_with('#') || trimmed.is_empty() {
@@ -365,7 +368,8 @@ fn parse_dyyl_to_lock(text: &str) -> Result<McmLock> {
                     let args_inner = &args_str[paren_start + 1..].trim_end_matches(')');
                     let (permission, step_op) = classify_mcm_op(op);
                     let args = parse_dyyl_args(args_inner);
-                    let step = new_step(&step_op, permission, args);
+                    let mut step = new_step(&step_op, permission, args);
+                    step.source_line = Some(format!("line {}", line_no + 1));
                     steps.push(step);
                 }
             }

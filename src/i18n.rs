@@ -185,24 +185,24 @@ pub fn source_already_imported(lang: Lang, url: &str) -> String {
     }
 }
 
-pub fn added_source(lang: Lang, url: &str) -> String {
+pub fn added_source(lang: Lang, name: &str) -> String {
     match lang {
-        Lang::En => format!("added source {url}"),
-        Lang::Zh => format!("已添加源 {url}"),
+        Lang::En => format!("added source {name}"),
+        Lang::Zh => format!("已添加源 {name}"),
     }
 }
 
-pub fn removed_source(lang: Lang, url: &str) -> String {
+pub fn removed_source(lang: Lang, name: &str) -> String {
     match lang {
-        Lang::En => format!("removed source {url}"),
-        Lang::Zh => format!("已移除源 {url}"),
+        Lang::En => format!("removed source {name}"),
+        Lang::Zh => format!("已移除源 {name}"),
     }
 }
 
-pub fn unknown_source(lang: Lang, url: &str) -> String {
+pub fn unknown_source(lang: Lang, identifier: &str) -> String {
     match lang {
-        Lang::En => format!("unknown source {url}"),
-        Lang::Zh => format!("未知源 {url}"),
+        Lang::En => format!("unknown source {identifier}"),
+        Lang::Zh => format!("未知源 {identifier}"),
     }
 }
 
@@ -280,14 +280,6 @@ pub fn script_warning(lang: Lang) -> &'static str {
         lang,
         "WARNING: this package contains scripts that will be executed. Review them carefully.",
         "警告: 此包包含将要执行的脚本。请仔细审查。"
-    )
-}
-
-pub fn curseforge_export_not_implemented(lang: Lang) -> &'static str {
-    t!(
-        lang,
-        "curseforge export is not implemented yet",
-        "CurseForge 导出尚未实现"
     )
 }
 

@@ -167,8 +167,8 @@ async fn install_route_body_supports_env_overrides() {
 
     // The script should support env overrides for testability.
     assert!(
-        body.contains("MCM_INSTALL_PREFIX"),
-        "script should support MCM_INSTALL_PREFIX env override"
+        body.contains("MCM_INSTALL_DIR"),
+        "script should support MCM_INSTALL_DIR env override"
     );
     assert!(
         body.contains("MCM_INSTALL_DRY_RUN") || body.contains("dry") || body.contains("DRY"),

@@ -508,6 +508,84 @@ fn pkg_make_mrpack_writes_valid_mrpack() {
     assert!(mrpack_path.exists(), "dev.mrpack should exist after export");
 }
 
+// ---------------------------------------------------------------------------
+// Export: pkg make --format curseforge
+// ---------------------------------------------------------------------------
+
+#[test]
+fn pkg_make_curseforge_writes_valid_zip() {
+    let home = TestHome::new();
+    home.profile();
+    let mcm_json = r#"{
+        "schema_version": 2,
+        "kind": "mcm-lock",
+        "identity": {"name": "seed", "version": "1.0.0"},
+        "permissions": {"install": true},
+        "game": {"version": "1.20.1", "loader": "fabric"},
+        "steps": [
+            {
+                "op": "mod.install",
+                "permission": "install",
+                "args": {
+                    "id": "rootmod",
+                    "provider": "curseforge",
+                    "project_id": "12345",
+                    "file_id": "67890",
+                    "version": "1.0.0",
+                    "filename": "rootmod-1.0.0.jar",
+                    "download_url": "https://edge.forgecdn.net/mock/rootmod"
+                }
+            }
+        ],
+        "artifacts": [],
+        "created_at": "2024-01-01T00:00:00Z"
+    }"#;
+    let mcm_path = write_file(home.root.path(), "seed.mcm", mcm_json.as_bytes());
+    home.cmd()
+        .args(["pkg", "install", mcm_path.to_str().unwrap(), "--yes"])
+        .assert()
+        .success();
+
+    let cwd = home.root.path();
+    let mut cmd = Command::cargo_bin("mcm").expect("mcm binary");
+    cmd.current_dir(cwd).args([
+        "--config-dir", home.config.to_str().unwrap(),
+        "--state-dir", home.state.to_str().unwrap(),
+        "--provider", "mock",
+        "pkg", "make", "--format", "curseforge", "--yes",
+    ]);
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("wrote").or(predicate::str::contains(".zip")));
+
+    // The .zip file should exist.
+    let zip_path = cwd.join("dev.zip");
+    assert!(zip_path.exists(), "dev.zip should exist after curseforge export");
+
+    // Verify manifest.json is present in the zip with correct structure.
+    let zip_bytes = fs::read(&zip_path).expect("read zip");
+    let cursor = std::io::Cursor::new(zip_bytes.as_slice());
+    let mut archive = zip::ZipArchive::new(cursor).expect("open zip");
+    let manifest_idx = (0..archive.len())
+        .find(|i| {
+            archive.by_index(*i).map(|e| e.name() == "manifest.json").unwrap_or(false)
+        })
+        .expect("manifest.json not found in zip");
+    use std::io::Read;
+    let mut manifest_str = String::new();
+    archive.by_index(manifest_idx).unwrap().read_to_string(&mut manifest_str).unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(&manifest_str).expect("parse manifest");
+    assert_eq!(manifest["manifestType"], "minecraftModpack");
+    assert_eq!(manifest["manifestVersion"], 1);
+    assert_eq!(manifest["minecraft"]["version"], "1.20.1");
+    assert_eq!(manifest["minecraft"]["modLoaders"][0]["id"], "fabric");
+    // The curseforge-sourced mod should appear in the files list.
+    let files = manifest["files"].as_array().expect("files array");
+    assert!(!files.is_empty(), "files list should contain the installed mod");
+    assert_eq!(files[0]["projectID"], 12345);
+    assert_eq!(files[0]["fileID"], 67890);
+}
+
 #[test]
 fn pkg_make_mrpack_round_trip_import() {
     let home = TestHome::new();

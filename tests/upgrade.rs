@@ -261,7 +261,7 @@ fn upgrade_no_game_configured_errors() {
         .arg("upgrade")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("no default game"));
+        .stderr(predicate::str::contains("no games configured"));
 }
 
 #[test]

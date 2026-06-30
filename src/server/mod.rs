@@ -171,12 +171,32 @@ async fn health(State(state): State<ServerState>) -> impl IntoResponse {
     (StatusCode::OK, Json(body))
 }
 
-async fn spa_index(State(state): State<ServerState>) -> impl IntoResponse {
+async fn spa_index(
+    State(state): State<ServerState>,
+    uri: axum::http::Uri,
+) -> impl IntoResponse {
+    let path = uri.path();
+    // Only serve the SPA index for known client-side routes.  Any other
+    // path — including traversal attempts that the HTTP client normalises
+    // (e.g. `/release/../../etc/passwd` → `/etc/passwd`) — gets a 404.
+    if !is_spa_route(path) {
+        return not_found().into_response();
+    }
     let index_path = state.web_dir().join("index.html");
     match std::fs::read_to_string(&index_path) {
         Ok(index) => (StatusCode::OK, [(header::CONTENT_TYPE, "text/html")], index).into_response(),
         Err(_) => not_found().into_response(),
     }
+}
+
+/// Whitelist of paths the SPA's client-side router handles.
+/// Unknown paths get 404 instead of the SPA fallback so that traversal
+/// attempts (normalised by the HTTP client) cannot masquerade as SPA routes.
+fn is_spa_route(path: &str) -> bool {
+    matches!(
+        path,
+        "/" | "/index.html" | "/dashboard" | "/dashboard.html" | "/publish" | "/publish.html"
+    ) || path.starts_with("/detail/")
 }
 
 /// Fallback handler: returns a 404-style "disabled" JSON error for any path

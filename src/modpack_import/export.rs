@@ -123,3 +123,138 @@ fn copy_overrides(
     }
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// CurseForge export
+// ---------------------------------------------------------------------------
+
+/// CurseForge `manifest.json` structure.
+#[derive(Serialize)]
+struct CurseforgeManifest {
+    #[serde(rename = "manifestType")]
+    manifest_type: String,
+    #[serde(rename = "manifestVersion")]
+    manifest_version: u32,
+    name: String,
+    version: String,
+    author: String,
+    files: Vec<CurseforgeFileEntry>,
+    overrides: String,
+    minecraft: CurseforgeMinecraft,
+}
+
+#[derive(Serialize)]
+struct CurseforgeFileEntry {
+    #[serde(rename = "projectID")]
+    project_id: i64,
+    #[serde(rename = "fileID")]
+    file_id: i64,
+    required: bool,
+}
+
+#[derive(Serialize)]
+struct CurseforgeMinecraft {
+    version: String,
+    #[serde(rename = "modLoaders")]
+    mod_loaders: Vec<CurseforgeModLoader>,
+}
+
+#[derive(Serialize)]
+struct CurseforgeModLoader {
+    id: String,
+    primary: bool,
+}
+
+/// Export the active profile as a CurseForge modpack zip.
+///
+/// The archive contains `manifest.json`, `modlist.html`, and the standard
+/// `overrides/` directory with mod jars and config files. Only mods whose
+/// `project_id`/`file_id` parse as integers (i.e. CurseForge-sourced mods)
+/// appear in the manifest `files` list; all installed jars are still copied
+/// into `overrides/mods/` so the pack is self-contained.
+pub(crate) fn export_curseforge(app: &App, output: &Path) -> Result<()> {
+    let profile = app.active_profile()?;
+    let lock = app.load_lock(&profile)?;
+    let game_root = profile
+        .mods_dir
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .context("could not resolve game root from active profile mods_dir")?;
+
+    let files: Vec<CurseforgeFileEntry> = lock
+        .installed
+        .values()
+        .filter_map(|m| {
+            let pid = m.project_id.parse::<i64>().ok()?;
+            let fid = m.file_id.parse::<i64>().ok()?;
+            Some(CurseforgeFileEntry {
+                project_id: pid,
+                file_id: fid,
+                required: true,
+            })
+        })
+        .collect();
+
+    // Build modlist.html — a simple list linking back to CurseForge pages.
+    let mut modlist = String::from("<ul>\n");
+    for m in lock.installed.values() {
+        let pid = m.project_id.parse::<i64>().unwrap_or(0);
+        if pid > 0 {
+            modlist.push_str(&format!(
+                "<li><a href=\"https://www.curseforge.com/projects/{pid}\">{}</a></li>\n",
+                html_escape(&m.logical_id)
+            ));
+        }
+    }
+    modlist.push_str("</ul>\n");
+
+    let manifest = CurseforgeManifest {
+        manifest_type: "minecraftModpack".to_owned(),
+        manifest_version: 1,
+        name: profile.name.clone(),
+        version: format!("mcm-export-{}", OffsetDateTime::now_utc().unix_timestamp()),
+        author: "mcm-export".to_owned(),
+        files,
+        overrides: "overrides".to_owned(),
+        minecraft: CurseforgeMinecraft {
+            version: profile.mc_version.clone(),
+            mod_loaders: vec![CurseforgeModLoader {
+                id: profile.loader.clone(),
+                primary: true,
+            }],
+        },
+    };
+
+    let manifest_json = serde_json::to_string_pretty(&manifest)?;
+    let opts = zip::write::FileOptions::default();
+    let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+
+    zip.start_file("manifest.json", opts)?;
+    zip.write_all(manifest_json.as_bytes())?;
+
+    zip.start_file("modlist.html", opts)?;
+    zip.write_all(modlist.as_bytes())?;
+
+    // Copy mod jars into overrides/mods/
+    for m in lock.installed.values() {
+        let jar_path = game_root.join("mods").join(&m.filename);
+        if let Ok(jar_bytes) = fs::read(&jar_path) {
+            zip.start_file(format!("overrides/mods/{}", m.filename), opts)?;
+            zip.write_all(&jar_bytes)?;
+        }
+    }
+
+    copy_overrides(&mut zip, &game_root, &opts)?;
+
+    let bytes = zip.finish()?.into_inner();
+    crate::util::atomic_write(output, &bytes)?;
+    println!("wrote {}", output.display());
+    Ok(())
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}

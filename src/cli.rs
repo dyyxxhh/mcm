@@ -185,13 +185,16 @@ pub enum SourceCommand {
     /// Add a manually imported source (trusted after import).
     Add {
         url: String,
+        /// Optional display name. If omitted, auto-generated as "Source N".
+        #[arg(short, long)]
+        name: Option<String>,
         #[arg(short, long)]
         yes: bool,
     },
-    /// Remove an imported source.
-    Remove { url: String },
-    /// Show info about an imported source.
-    Info { url: String },
+    /// Remove an imported source (by URL or name).
+    Remove { identifier: String },
+    /// Show info about an imported source (by URL or name).
+    Info { identifier: String },
     /// List all imported sources.
     List,
 }

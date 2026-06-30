@@ -65,8 +65,7 @@ impl crate::app::App {
             dep.kind != DependencyKind::Required && dep.kind != DependencyKind::Optional
         }) {
             println!(
-                "{} {:?} {}",
-                i18n::warning_prefix(self.lang),
+                "warning: {:?} dependency {} not installed",
                 dep.kind,
                 dep.logical_id
             );

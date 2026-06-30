@@ -2,13 +2,15 @@
 //!
 //! Covers:
 //! - Fresh config: `source list` is empty (exit 0, silent success).
-//! - `source add <url> --yes`: succeeds and appears in `source list`.
+//! - `source add <url> --yes`: succeeds, auto-named "Source 1", appears in list.
+//! - `source add <url> --name <name> --yes`: custom name is used.
 //! - `source add <url>` without `--yes` in non-TTY: bails with confirmation message.
 //! - `source add` duplicate URL: bails with conflict/duplicate message.
-//! - `source info <url>`: prints URL and trusted status.
+//! - `source info <identifier>`: prints name, URL, and trusted status.
 //! - `source info <unknown>`: errors.
-//! - `source remove <url>`: removes it, `source list` no longer shows it.
+//! - `source remove <identifier>`: removes it, `source list` no longer shows it.
 //! - `source remove <unknown>`: errors.
+//! - Auto-naming: "Source 1", "Source 2", reuses freed numbers.
 
 use assert_cmd::Command;
 use predicates::prelude::*;
@@ -83,12 +85,28 @@ fn source_add_with_yes_succeeds_and_appears_in_list() {
         .args(["source", "add", URL_A, "--yes"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(format!("added source {URL_A}")));
+        .stdout(predicate::str::contains("added source Source 1"));
     home.cmd()
         .args(["source", "list"])
         .assert()
         .success()
         .stdout(predicate::str::contains(URL_A));
+}
+
+#[test]
+fn source_add_with_custom_name_is_used() {
+    let home = TestHome::new();
+    home.cmd()
+        .args(["source", "add", URL_A, "--name", "MyRepo", "--yes"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("added source MyRepo"));
+    // `source info` by name works.
+    home.cmd()
+        .args(["source", "info", "MyRepo"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("name: MyRepo"));
 }
 
 #[test]
@@ -101,6 +119,7 @@ fn source_add_persists_to_config_toml() {
     let toml = fs::read_to_string(home.config.join("config.toml")).expect("read config");
     assert!(toml.contains("[sources."));
     assert!(toml.contains(URL_A));
+    assert!(toml.contains("name = \"Source 1\""));
 }
 
 // ---------------------------------------------------------------------------
@@ -150,15 +169,23 @@ fn source_info_prints_url_and_trusted_status() {
         .args(["source", "add", URL_A, "--yes"])
         .assert()
         .success();
+    // Look up by URL.
     home.cmd()
         .args(["source", "info", URL_A])
         .assert()
         .success()
         .stdout(
             predicate::str::contains(format!("url: {URL_A}"))
+                .and(predicate::str::contains("name: Source 1"))
                 .and(predicate::str::contains("status: trusted (manual import)"))
                 .and(predicate::str::contains("added_at:")),
         );
+    // Look up by name.
+    home.cmd()
+        .args(["source", "info", "Source 1"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!("url: {URL_A}")));
 }
 
 #[test]
@@ -182,11 +209,12 @@ fn source_remove_removes_from_list() {
         .args(["source", "add", URL_A, "--yes"])
         .assert()
         .success();
+    // Remove by name (not URL).
     home.cmd()
-        .args(["source", "remove", URL_A])
+        .args(["source", "remove", "Source 1"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(format!("removed source {URL_A}")));
+        .stdout(predicate::str::contains("removed source Source 1"));
     home.cmd()
         .args(["source", "list"])
         .assert()
@@ -220,12 +248,33 @@ fn source_list_multiple_sources_in_alphabetical_order() {
         .args(["source", "add", URL_A, "--yes"])
         .assert()
         .success();
-    // BTreeMap iterates in sorted key order → A before B, one per line.
+    // BTreeMap iterates in sorted key order → A before B.
+    // Format: "Source N  url".
     home.cmd()
         .args(["source", "list"])
         .assert()
         .success()
-        .stdout(predicate::eq(format!("{URL_A}\n{URL_B}\n")));
+        .stdout(predicate::eq(format!("Source 2  {URL_A}\nSource 1  {URL_B}\n")));
+}
+
+// ---------------------------------------------------------------------------
+// Auto-naming: sequential numbers, reuses freed slots
+// ---------------------------------------------------------------------------
+
+#[test]
+fn auto_naming_sequential_and_reuses_freed_number() {
+    let home = TestHome::new();
+    // Source 1, Source 2, Source 3.
+    home.cmd().args(["source", "add", URL_A, "--yes"]).assert().success();
+    home.cmd().args(["source", "add", URL_B, "--yes"]).assert().success();
+    // Remove Source 1 → next add should reuse "Source 1".
+    home.cmd().args(["source", "remove", "Source 1"]).assert().success();
+    // Add a third URL → should be "Source 1" (reused), not "Source 3".
+    home.cmd()
+        .args(["source", "add", "https://third.test/feed.json", "--yes"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("added source Source 1"));
 }
 
 // ---------------------------------------------------------------------------

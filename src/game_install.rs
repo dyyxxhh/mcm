@@ -257,6 +257,12 @@ impl App {
     ) -> Result<()> {
         let parsed = parse_mc_target(target).map_err(|e| anyhow::anyhow!("{e}"))?;
 
+        // Confirm before doing any network/file work so non-interactive
+        // callers fail fast without fetching remote manifests.
+        if !dry_run {
+            require_confirmation(OperationKind::Install, yes)?;
+        }
+
         let (mc_manifest, loader_manifests) = self.get_manifests()?;
         let resolved = resolve_target(parsed, &mc_manifest, &loader_manifests)?;
 
@@ -264,8 +270,6 @@ impl App {
             Self::print_resolution(&resolved);
             return Ok(());
         }
-
-        require_confirmation(OperationKind::Install, yes)?;
 
         // Load config and check the game doesn't already exist.
         let mut config = self.load_config()?;

@@ -54,6 +54,11 @@ impl App {
     pub(crate) fn export_mrpack(&self, output: &Path) -> Result<()> {
         export::export_mrpack(self, output)
     }
+
+    /// Export the current game state as a CurseForge modpack `.zip`.
+    pub(crate) fn export_curseforge(&self, output: &Path) -> Result<()> {
+        export::export_curseforge(self, output)
+    }
 }
 
 fn is_zip_path(target: &str) -> bool {
