@@ -1,0 +1,93 @@
+# cargo-deny configuration for MCM
+#
+# MCM is licensed under AGPL-3.0-or-later (see LICENSE).
+# For dependency licenses, we prefer permissive OSI-approved licenses
+# that are compatible with distribution under AGPLv3.
+#
+# Note: AGPLv3 §13 requires that anyone running a modified version
+# of the software as a network service must offer users the
+# Corresponding Source. This obligation applies to MCM itself
+# (if used as a share/source server), not to its dependencies'
+# licenses — but we only allow permissive deps to avoid copyleft
+# compatibility questions.
+
+[graph]
+targets = [
+    # Currently no target filtering — check all targets.
+    # Add e.g. "x86_64-unknown-linux-gnu" to narrow.
+]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+db-path = "~/.cargo/advisory-dbs"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+ignore = [
+    # No advisories ignored currently.
+]
+
+[licenses]
+# Only permissive OSI-approved licenses are allowed. Any license not
+# in this list (including GPL-family copyleft) will be rejected.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "Zlib",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "0BSD",
+    "OpenSSL",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    # The project itself is AGPL-3.0-or-later. This entry allows the
+    # workspace crate's own license; it does not allow AGPL deps.
+    "AGPL-3.0-or-later",
+]
+confidence-threshold = 0.8
+exceptions = [
+    # No copyleft exceptions currently.
+    # If a copyleft dep is intentionally added:
+    #   { allow = ["AGPL-3.0"], crate = "some-crate" }
+]
+
+[licenses.private]
+ignore = false
+registries = []
+
+# Clarifications for crates whose license is not machine-readable.
+#[[licenses.clarify]]
+#crate = "ring"
+#expression = "MIT AND ISC AND OpenSSL"
+#license-files = [
+#    { path = "LICENSE", hash = 0xbd0eed23 },
+#]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow = []
+allow-workspace = false
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[sources.allow-org]
+github = []
+gitlab = []
+bitbucket = []
