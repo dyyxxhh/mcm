@@ -5,9 +5,10 @@
 //!   username and a deterministic UUID derived from `"OfflinePlayer:<username>"`.
 //!   The access token is a placeholder; `sessionType` is `"legacy"` (or `"Mojang"`
 //!   for backward compat).
-//! - **Online** (Microsoft/Mojang): requires a valid access token from the
-//!   Microsoft OAuth flow. The [`OnlineSessionProvider`] trait abstracts the
-//!   token validation/refresh; tests inject a [`MockOnlineProvider`].
+//! - **Online** (Microsoft/Mojang): real Microsoft OAuth2 device code flow
+//!   implemented in [`crate::auth_microsoft`]. The [`OnlineSessionProvider`]
+//!   trait abstracts token validation/refresh; tests inject a
+//!   [`MockOnlineProvider`], production uses [`MicrosoftAuthProvider`].
 //!
 //! YY-ID (OIDC) is **never** used for Minecraft game launch. YY-ID is
 //! exclusively for MCM Web/share authentication (see [`crate::server::auth`]).
@@ -34,17 +35,56 @@ pub(crate) enum LaunchAuthMode {
 
 /// Online account credentials (Microsoft/Mojang).
 ///
-/// These fields are never exposed in logs or debug output.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// These fields are never exposed in logs or debug output via the custom
+/// [`Debug`](impl fmt::Debug for OnlineAccount) below.
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub(crate) struct OnlineAccount {
     /// Player display name.
     pub username: String,
     /// Player UUID (dash-separated hex).
     pub uuid: String,
-    /// OAuth access token (sensitive — never logged).
+    /// Minecraft access token (sensitive — never logged).
     pub access_token: String,
     /// User type: `"microsoft"`, `"mojang"`, or `"legacy"`.
     pub user_type: String,
+    /// Microsoft refresh token (persisted so expired sessions can be
+    /// refreshed without re-running the device code flow). Sensitive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+    /// Absolute expiry (unix seconds) of the MS access token used to obtain
+    /// the current MC access token. When `now >= mc_expires_at`, the provider
+    /// refreshes via [`auth_microsoft::refresh_mc_session`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mc_expires_at: Option<i64>,
+}
+
+impl OnlineAccount {
+    /// Whether the stored session has expired and needs a refresh.
+    pub(crate) fn is_expired(&self) -> bool {
+        match self.mc_expires_at {
+            Some(exp) => now_unix() >= exp,
+            // No expiry recorded → treat as expired so we refresh on first use.
+            None => true,
+        }
+    }
+
+    /// Whether a refresh is possible (refresh token present).
+    pub(crate) fn can_refresh(&self) -> bool {
+        self.refresh_token.as_deref().is_some_and(|s| !s.is_empty())
+    }
+}
+
+impl fmt::Debug for OnlineAccount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OnlineAccount")
+            .field("username", &self.username)
+            .field("uuid", &self.uuid)
+            .field("access_token", &"<redacted>")
+            .field("user_type", &self.user_type)
+            .field("refresh_token", &self.refresh_token.as_ref().map(|_| "<redacted>"))
+            .field("mc_expires_at", &self.mc_expires_at)
+            .finish()
+    }
 }
 
 /// A Minecraft launch auth session.
@@ -159,12 +199,17 @@ pub(crate) fn offline_uuid(username: &str) -> String {
 }
 
 /// Provider trait for online auth sessions. Mockable for tests.
+///
+/// `get_session` takes a mutable reference to the account so a real provider
+/// can refresh expired tokens in-place (and the caller persists the updated
+/// account). The mock provider ignores the mutability.
 pub(crate) trait OnlineSessionProvider: Send + Sync {
     /// Get a valid online session for the given account.
     ///
     /// Returns `Err` if the token is expired, invalid, or the provider is
-    /// unreachable.
-    fn get_session(&self, account: &OnlineAccount) -> Result<AuthSession>;
+    /// unreachable. May mutate `account` (e.g. to store a refreshed token);
+    /// the caller is responsible for persisting any changes.
+    fn get_session(&self, account: &mut OnlineAccount) -> Result<AuthSession>;
 }
 
 /// Mock online session provider for tests.
@@ -205,12 +250,12 @@ impl MockOnlineProvider {
 }
 
 impl OnlineSessionProvider for MockOnlineProvider {
-    fn get_session(&self, account: &OnlineAccount) -> Result<AuthSession> {
+    fn get_session(&self, account: &mut OnlineAccount) -> Result<AuthSession> {
         match &self.behavior {
             MockOnlineBehavior::Success => Ok(AuthSession::from_online_account(account)),
             MockOnlineBehavior::ExpiredToken => {
                 bail!(
-                    "Microsoft access token is expired; re-authenticate with `mcm pkg auth login`"
+                    "Microsoft access token is expired; re-authenticate with `mcm auth login`"
                 )
             }
             MockOnlineBehavior::Error(msg) => bail!("{msg}"),
@@ -218,14 +263,64 @@ impl OnlineSessionProvider for MockOnlineProvider {
     }
 }
 
+/// Real Microsoft/Mojang online session provider.
+///
+/// On `get_session`:
+/// - If the stored MC access token is still valid → return session.
+/// - If expired but a refresh token is present → refresh via
+///   [`auth_microsoft::refresh_mc_session`], update the account in-place,
+///   return session. The caller persists the updated account.
+/// - If refresh fails (revoked, network) → return an error telling the user
+///   to re-run `mcm auth login`.
+pub(crate) struct MicrosoftAuthProvider;
+
+impl MicrosoftAuthProvider {
+    pub(crate) fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for MicrosoftAuthProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OnlineSessionProvider for MicrosoftAuthProvider {
+    fn get_session(&self, account: &mut OnlineAccount) -> Result<AuthSession> {
+        if !account.is_expired() {
+            // Stored MC access token still valid.
+            return Ok(AuthSession::from_online_account(account));
+        }
+        if !account.can_refresh() {
+            bail!(
+                "Microsoft session expired and no refresh token is stored; \
+                 run `mcm auth login` to authenticate"
+            );
+        }
+        let refresh_token = account
+            .refresh_token
+            .clone()
+            .expect("can_refresh() guaranteed Some");
+        let (mc_access_token, expires_at, new_refresh_token) =
+            crate::auth_microsoft::refresh_mc_session(&refresh_token)
+                .context("refreshing Microsoft session")?;
+        account.access_token = mc_access_token;
+        account.mc_expires_at = Some(expires_at);
+        account.refresh_token = Some(new_refresh_token);
+        Ok(AuthSession::from_online_account(account))
+    }
+}
+
 /// Resolve an [`AuthSession`] from the launch auth mode and config.
 ///
 /// For offline mode, creates a deterministic session from the username.
 /// For online mode, uses the [`OnlineSessionProvider`] to validate/refresh
-/// the token.
+/// the token. The account is taken mutably so a real provider can persist
+/// refreshed tokens; the caller is responsible for saving config if needed.
 pub(crate) fn resolve_launch_session(
     mode: &LaunchAuthMode,
-    online_account: Option<&OnlineAccount>,
+    online_account: Option<&mut OnlineAccount>,
     provider: &dyn OnlineSessionProvider,
 ) -> Result<AuthSession> {
     match mode {
@@ -234,6 +329,7 @@ pub(crate) fn resolve_launch_session(
             // The username in online_account is ignored in offline mode;
             // users configure their offline username separately.
             let username = online_account
+                .as_ref()
                 .map(|a| a.username.as_str())
                 .unwrap_or("Player");
             Ok(AuthSession::offline(username))
@@ -241,12 +337,20 @@ pub(crate) fn resolve_launch_session(
         LaunchAuthMode::Online => {
             let account = online_account.context(
                 "online auth mode requires an account configuration; \
-                 run `mcm config` to set up your Microsoft/Mojang account, \
+                 run `mcm auth login` to authenticate with Microsoft, \
                  or switch to offline mode",
             )?;
             provider.get_session(account)
         }
     }
+}
+
+/// Current unix timestamp (seconds). Helper shared by expiry checks.
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 #[allow(
@@ -418,6 +522,7 @@ mod tests {
             uuid: "deadbeef-dead-beef-dead-beefdeadbeef".to_owned(),
             access_token: "real-token".to_owned(),
             user_type: "microsoft".to_owned(),
+            ..Default::default()
         };
         let session = AuthSession::from_online_account(&account);
         assert_eq!(session.username, "Alex");
@@ -431,13 +536,14 @@ mod tests {
     #[test]
     fn mock_provider_success_returns_session() {
         let provider = MockOnlineProvider::success();
-        let account = OnlineAccount {
+        let mut account = OnlineAccount {
             username: "Test".to_owned(),
             uuid: "11111111-1111-1111-1111-111111111111".to_owned(),
             access_token: "token123".to_owned(),
             user_type: "microsoft".to_owned(),
+            ..Default::default()
         };
-        let session = provider.get_session(&account).expect("should succeed");
+        let session = provider.get_session(&mut account).expect("should succeed");
         assert_eq!(session.username, "Test");
         assert_eq!(session.access_token, "token123");
         assert_eq!(session.session_type, "microsoft");
@@ -446,13 +552,14 @@ mod tests {
     #[test]
     fn mock_provider_expired_returns_error() {
         let provider = MockOnlineProvider::expired_token();
-        let account = OnlineAccount {
+        let mut account = OnlineAccount {
             username: "Test".to_owned(),
             uuid: "11111111-1111-1111-1111-111111111111".to_owned(),
             access_token: "expired-token".to_owned(),
             user_type: "microsoft".to_owned(),
+            ..Default::default()
         };
-        let err = provider.get_session(&account).unwrap_err();
+        let err = provider.get_session(&mut account).unwrap_err();
         assert!(
             err.to_string().contains("expired"),
             "error should mention expired: {err}"
@@ -462,13 +569,14 @@ mod tests {
     #[test]
     fn mock_provider_error_returns_custom_message() {
         let provider = MockOnlineProvider::error("network unreachable");
-        let account = OnlineAccount {
+        let mut account = OnlineAccount {
             username: "Test".to_owned(),
             uuid: "11111111-1111-1111-1111-111111111111".to_owned(),
             access_token: "token".to_owned(),
             user_type: "mojang".to_owned(),
+            ..Default::default()
         };
-        let err = provider.get_session(&account).unwrap_err();
+        let err = provider.get_session(&mut account).unwrap_err();
         assert!(
             err.to_string().contains("network unreachable"),
             "error should contain custom message: {err}"
@@ -490,14 +598,16 @@ mod tests {
     #[test]
     fn resolve_offline_custom_username() {
         let provider = MockOnlineProvider::success();
-        let account = OnlineAccount {
+        let mut account = OnlineAccount {
             username: "CustomName".to_owned(),
             uuid: "whatever".to_owned(),
             access_token: "ignored".to_owned(),
             user_type: "ignored".to_owned(),
+            ..Default::default()
         };
-        let session = resolve_launch_session(&LaunchAuthMode::Offline, Some(&account), &provider)
-            .expect("offline should succeed");
+        let session =
+            resolve_launch_session(&LaunchAuthMode::Offline, Some(&mut account), &provider)
+                .expect("offline should succeed");
         assert_eq!(session.username, "CustomName");
         assert_eq!(session.uuid, offline_uuid("CustomName"));
         // Access token is placeholder, not the online token
@@ -507,14 +617,16 @@ mod tests {
     #[test]
     fn resolve_online_with_valid_account() {
         let provider = MockOnlineProvider::success();
-        let account = OnlineAccount {
+        let mut account = OnlineAccount {
             username: "OnlinePlayer".to_owned(),
             uuid: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa".to_owned(),
             access_token: "real-ms-token".to_owned(),
             user_type: "microsoft".to_owned(),
+            ..Default::default()
         };
-        let session = resolve_launch_session(&LaunchAuthMode::Online, Some(&account), &provider)
-            .expect("online should succeed");
+        let session =
+            resolve_launch_session(&LaunchAuthMode::Online, Some(&mut account), &provider)
+                .expect("online should succeed");
         assert_eq!(session.username, "OnlinePlayer");
         assert_eq!(session.session_type, "microsoft");
     }
@@ -532,14 +644,15 @@ mod tests {
     #[test]
     fn resolve_online_expired_token_errors() {
         let provider = MockOnlineProvider::expired_token();
-        let account = OnlineAccount {
+        let mut account = OnlineAccount {
             username: "Test".to_owned(),
             uuid: "11111111-1111-1111-1111-111111111111".to_owned(),
             access_token: "expired".to_owned(),
             user_type: "microsoft".to_owned(),
+            ..Default::default()
         };
-        let err =
-            resolve_launch_session(&LaunchAuthMode::Online, Some(&account), &provider).unwrap_err();
+        let err = resolve_launch_session(&LaunchAuthMode::Online, Some(&mut account), &provider)
+            .unwrap_err();
         assert!(
             err.to_string().contains("expired"),
             "error should mention expired: {err}"

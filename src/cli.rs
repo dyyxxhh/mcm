@@ -154,6 +154,30 @@ pub enum Command {
         #[arg(long, default_value = "127.0.0.1:8950")]
         bind: std::net::SocketAddr,
     },
+
+    /// Microsoft/Mojang account login for online game launch (`mcm run`).
+    /// Uses the OAuth2 device code flow — visit a URL and enter a code, no
+    /// browser redirect needed (works headless/SSH).
+    Auth {
+        #[command(subcommand)]
+        command: AuthCommand,
+    },
+}
+
+/// Subcommands of `mcm auth` for managing the Microsoft/Mojang account used
+/// by `mcm run` (online launch mode).
+#[derive(Debug, Subcommand)]
+pub enum AuthCommand {
+    /// Log in with Microsoft via the device code flow. Stores the account
+    /// (including refresh token) in config.toml; subsequent `mcm run` uses
+    /// it and refreshes tokens automatically.
+    Login,
+    /// Print the current account status: username, UUID, session validity,
+    /// and whether a refresh token is available.
+    Status,
+    /// Forget the stored Microsoft account (deletes access + refresh tokens
+    /// from config.toml). Does not contact Microsoft servers.
+    Logout,
 }
 
 #[derive(Debug, Subcommand)]

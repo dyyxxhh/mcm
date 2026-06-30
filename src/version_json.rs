@@ -33,28 +33,56 @@ pub(crate) struct VersionJson {
     /// Asset index ID (e.g. "12").
     #[serde(default)]
     pub(crate) assets: Option<String>,
-    #[allow(dead_code)]
     #[serde(default, rename = "assetIndex")]
     pub(crate) asset_index: Option<AssetIndexRef>,
     #[serde(default)]
     pub(crate) libraries: Vec<Library>,
     #[serde(default)]
     pub(crate) arguments: Option<Arguments>,
+    /// Top-level `downloads` block containing the client/server jar metadata.
+    #[serde(default)]
+    pub(crate) downloads: Option<VersionDownloads>,
 }
 
-/// Reference to the asset index JSON (URL + hash).
+/// Top-level `downloads` object in the Mojang version JSON.
+///
+/// Unlike library artifacts, the client/server entries here do NOT have a
+/// `path` field — they only carry `sha1`, `size`, and `url`.
 #[derive(Debug, Clone, Deserialize)]
-#[expect(
-    dead_code,
-    reason = "Asset index metadata; used by callers for download/verification"
-)]
-pub(crate) struct AssetIndexRef {
-    pub(crate) id: String,
+pub(crate) struct VersionDownloads {
+    #[serde(default)]
+    pub(crate) client: Option<VersionArtifact>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub(crate) server: Option<VersionArtifact>,
+}
+
+/// A top-level download artifact (client/server jar).
+///
+/// Same shape as [`LibraryArtifact`] minus the `path` field, since Mojang's
+/// `downloads.client` doesn't carry one.
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct VersionArtifact {
     #[serde(default)]
     pub(crate) sha1: Option<String>,
     #[serde(default)]
     pub(crate) size: Option<u64>,
+    pub(crate) url: String,
+}
+
+/// Reference to the asset index JSON (URL + hash).
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct AssetIndexRef {
+    #[allow(dead_code)]
+    pub(crate) id: String,
     #[serde(default)]
+    #[allow(dead_code)]
+    pub(crate) sha1: Option<String>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub(crate) size: Option<u64>,
+    #[serde(default)]
+    #[allow(dead_code)]
     pub(crate) total_size: Option<u64>,
     pub(crate) url: String,
 }
@@ -87,18 +115,9 @@ pub(crate) struct LibraryDownloads {
 pub(crate) struct LibraryArtifact {
     pub(crate) path: String,
     #[serde(default)]
-    #[expect(
-        dead_code,
-        reason = "Hash for verification; used by callers for integrity checks"
-    )]
     pub(crate) sha1: Option<String>,
     #[serde(default)]
-    #[expect(
-        dead_code,
-        reason = "Size for validation; used by callers for size checks"
-    )]
     pub(crate) size: Option<u64>,
-    #[expect(dead_code, reason = "Download URL; used by callers for HTTP fetch")]
     pub(crate) url: String,
 }
 
@@ -156,10 +175,6 @@ impl ArgValue {
 
 /// Parsed asset index JSON (objects map).
 #[derive(Debug, Clone, Deserialize)]
-#[expect(
-    dead_code,
-    reason = "Asset index content; used by callers for asset resolution"
-)]
 pub(crate) struct AssetIndexContent {
     #[serde(default)]
     pub(crate) objects: BTreeMap<String, AssetObject>,
@@ -167,7 +182,6 @@ pub(crate) struct AssetIndexContent {
 
 /// A single asset entry in the index.
 #[derive(Debug, Clone, Deserialize)]
-#[expect(dead_code, reason = "Asset entry; used by callers for download/verify")]
 pub(crate) struct AssetObject {
     pub(crate) hash: String,
     pub(crate) size: u64,

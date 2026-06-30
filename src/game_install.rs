@@ -6,17 +6,21 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::app::App;
 use crate::cli::ProviderChoice;
 use crate::confirmation::{require_confirmation, OperationKind};
+use crate::download::{download_file, DownloadOptions, FetchError, FetchOutcome, Fetcher, HttpFetcher, RangeServed};
 use crate::game_model::{GameConfig, GameRecord};
 use crate::i18n;
 use crate::mc_target::{parse_mc_target, Loader};
+use crate::version_json::{
+    current_platform, library_applies, parse_version_json, AssetIndexContent, LibraryArtifact,
+};
 use crate::version_manifest::{FabricGameVersion, LoaderVersions, PromosSlim, VersionManifest};
 use crate::version_resolver::{resolve_target, ResolvedTarget};
 
@@ -282,12 +286,29 @@ impl App {
             i18n::create_dir_error(self.lang, &version_dir.display().to_string())
         })?;
 
-        // Write version metadata (mock version JSON).
-        write_version_json(&version_dir, &resolved, &resolved_version_id)?;
+        // Find the version entry URL from the manifest. For real providers
+        // this is a real Mojang URL we can fetch the per-version JSON from;
+        // for mock providers it's a fixture URL (`https://mock-mojang.test/...`)
+        // that we ignore — `write_version_json` fabricates a fixture JSON.
+        let version_entry_url = mc_manifest
+            .versions
+            .iter()
+            .find(|v| v.id == resolved.mc_version)
+            .map(|v| v.url.as_str());
 
-        // Write minecraft.jar via the download engine.
-        // Non-mock providers need real HTTP artifact fetching which is not yet
-        // implemented — fail clearly rather than silently writing mock bytes.
+        // Write the Mojang-format version JSON. Real providers fetch the
+        // actual version JSON from Mojang; mock providers fabricate a fixture.
+        write_version_json(
+            &version_dir,
+            &resolved,
+            &resolved_version_id,
+            version_entry_url,
+            self.provider_choice,
+        )
+        .context("write version JSON")?;
+
+        // Write minecraft.jar (the client jar). Mock providers write fixture
+        // bytes; real providers fetch from Mojang with SHA-1 + size verification.
         let jar_path = version_dir.join(format!("{resolved_version_id}.jar"));
         if self.provider_choice == ProviderChoice::Mock {
             let jar_url = format!("mock://game/{resolved_version_id}/client");
@@ -304,34 +325,38 @@ impl App {
             )
             .with_context(|| i18n::write_file_error(self.lang, &jar_path.display().to_string()))?;
         } else {
-            bail!(
-                "real game artifact download is not yet implemented; \
-                 use --provider mock for fixture installs, or wait for \
-                 Mojang/Forge/Fabric artifact download support"
-            );
+            download_client_jar(&jar_path, &version_dir, &resolved_version_id)
+                .context("download client jar from Mojang")?;
         }
 
         // If there's a loader, write the loader jar into the same flat
-        // version directory (HMCL-compatible layout).
+        // version directory (HMCL-compatible layout). Mock providers write
+        // fixture bytes; real providers fetch from the loader's Maven repo.
         let loader_version = resolved.loader_version.clone();
         let loader_type = resolved.loader;
         if let (Some(lt), Some(lv)) = (&loader_type, &loader_version) {
             let loader_jar = version_dir.join(format!("{}-{}.jar", lt.as_str(), lv));
-            let loader_url = format!("mock://game/{resolved_version_id}/{}-{}", lt.as_str(), lv);
-            let loader_content = mock_loader_bytes(lt, lv);
-            let loader_fetcher = MockGameFetcher {
-                url: loader_url,
-                bytes: loader_content.clone(),
-            };
-            download_game_artifact(
-                &loader_jar,
-                &loader_fetcher,
-                Some(loader_content.len() as u64),
-                None,
-            )
-            .with_context(|| {
-                i18n::write_file_error(self.lang, &loader_jar.display().to_string())
-            })?;
+            if self.provider_choice == ProviderChoice::Mock {
+                let loader_url =
+                    format!("mock://game/{resolved_version_id}/{}-{}", lt.as_str(), lv);
+                let loader_content = mock_loader_bytes(lt, lv);
+                let loader_fetcher = MockGameFetcher {
+                    url: loader_url,
+                    bytes: loader_content.clone(),
+                };
+                download_game_artifact(
+                    &loader_jar,
+                    &loader_fetcher,
+                    Some(loader_content.len() as u64),
+                    None,
+                )
+                .with_context(|| {
+                    i18n::write_file_error(self.lang, &loader_jar.display().to_string())
+                })?;
+            } else {
+                download_loader_jar(&loader_jar, *lt, lv, &resolved.mc_version)
+                    .with_context(|| format!("download {} loader jar {lv}", lt.as_str()))?;
+            }
         }
 
         // Materialize libraries, assets, and natives under game root.
@@ -459,27 +484,50 @@ impl App {
 
 /// Write a Mojang-format version JSON file.
 ///
-/// Produces a realistic version manifest with libraries, arguments, asset
-/// index, and download metadata. The structure mirrors real Mojang version
-/// JSON so that downstream launcher logic (Task 11: classpath, assets,
-/// natives) can parse it without special-casing mock data.
-///
-/// Libraries use mock coordinates but real Mojang structure. The mock
-/// provider does not need real artifacts — these paths are placeholders
-/// for the download engine (Task 11).
+/// For real providers (`provider_choice != Mock`), fetches the actual
+/// Mojang per-version JSON from the URL in the version manifest
+/// (`version_entry_url`). For mock providers, fabricates a realistic-looking
+/// fixture JSON so downstream code paths can be exercised without network.
 fn write_version_json(
     version_dir: &Path,
     resolved: &ResolvedTarget,
     version_id: &str,
+    version_entry_url: Option<&str>,
+    provider_choice: ProviderChoice,
 ) -> Result<()> {
-    // Derive asset index id from the MC version (Mojang convention).
-    let assets_id = match resolved.mc_version.as_str() {
-        v if v.starts_with("1.21") => "12",
-        v if v.starts_with("1.20.4") => "12",
-        v if v.starts_with("1.20.1") => "12",
-        v if v.starts_with("1.19.4") => "12",
-        _ => "12",
-    };
+    let path = version_dir.join(format!("{version_id}.json"));
+
+    // Real provider: fetch real Mojang version JSON. This gives us real
+    // URLs/SHA-1/sizes for the client jar, libraries, and assets.
+    if provider_choice != ProviderChoice::Mock {
+        let url = version_entry_url.ok_or_else(|| {
+            anyhow!(
+                "no version manifest URL for mc_version `{}`; \
+                 cannot fetch real version JSON",
+                resolved.mc_version
+            )
+        })?;
+        let client = http_client("fetch version JSON")?;
+        let resp = client
+            .get(url)
+            .send()
+            .with_context(|| format!("fetch version JSON from {url}"))?;
+        if !resp.status().is_success() {
+            bail!(
+                "version JSON fetch from {url} returned status {}",
+                resp.status()
+            );
+        }
+        let text = resp.text().context("read version JSON response body")?;
+        fs::write(&path, &text)
+            .with_context(|| format!("write {}", path.display()))?;
+        return Ok(());
+    }
+
+    // Mock provider: fabricate a fixture version JSON with fake but
+    // structurally-valid URLs/SHA-1s. Downstream code (classpath, assets,
+    // natives) parses this without needing real artifacts on disk.
+    let assets_id = "12";
 
     let json = serde_json::json!({
         "id": version_id,
@@ -577,7 +625,6 @@ fn write_version_json(
             }
         ]
     });
-    let path = version_dir.join(format!("{version_id}.json"));
     fs::write(&path, serde_json::to_string_pretty(&json)?)
         .with_context(|| format!("write {}", path.display()))?;
     Ok(())
@@ -605,80 +652,154 @@ fn mock_loader_bytes(loader: &Loader, version: &str) -> Vec<u8> {
 ///
 /// Creates:
 /// - `game_root/libraries/<artifact.path>` for each library with an artifact
-/// - `game_root/assets/indexes/<assetIndex.id>.json` (mock asset index)
-/// - `game_root/assets/objects/` directory
-/// - `game_root/versions/<resolved_id>/natives/` directory
-/// - Mock native classifier files in natives/ for libraries with a `natives` map
+/// - `game_root/assets/indexes/<assetIndex.id>.json` (asset index JSON)
+/// - `game_root/assets/objects/<hh>/<hash>` for each asset object
+/// - `game_root/versions/<resolved_id>/natives/` directory with extracted
+///   native libraries from each native classifier jar
+///
+/// For mock providers, libraries/assets/natives are written as fixture bytes
+/// (no network). For real providers, every artifact is fetched via
+/// [`HttpFetcher`](crate::download::HttpFetcher) with SHA-1 + size validation,
+/// matching Mojang's published hashes.
 fn install_game_assets(
     game_root: &Path,
     version_dir: &Path,
     resolved_version_id: &str,
     provider_choice: ProviderChoice,
 ) -> Result<()> {
-    use crate::version_json::{current_platform, native_jar_paths, parse_version_json};
-
     let version_json_path = version_dir.join(format!("{resolved_version_id}.json"));
     let vj = parse_version_json(&version_json_path)
         .context("parse version JSON for asset installation")?;
 
     let libraries_root = game_root.join("libraries");
+    let platform = current_platform().context("detect current platform for native selection")?;
 
-    if provider_choice != ProviderChoice::Mock {
-        bail!(
-            "real library/asset download is not yet implemented; \
-             use --provider mock for fixture installs, or wait for \
-             Mojang/Forge/Fabric artifact download support"
-        );
-    }
-
-    // --- Libraries (mock fixture bytes only) ---
+    // ---------------- Libraries + native classifier jars ----------------
+    let mut native_jar_paths_to_extract: Vec<PathBuf> = Vec::new();
     for lib in &vj.libraries {
+        if !library_applies(lib, platform) {
+            continue;
+        }
         let Some(downloads) = &lib.downloads else {
             continue;
         };
-        let Some(artifact) = &downloads.artifact else {
-            continue;
-        };
-        let lib_path = libraries_root.join(&artifact.path);
-        if let Some(parent) = lib_path.parent() {
-            fs::create_dir_all(parent)
-                .with_context(|| format!("create library dir: {}", parent.display()))?;
-        }
-        let content = mock_library_jar_bytes(&lib.name);
-        fs::write(&lib_path, &content)
-            .with_context(|| format!("write library: {}", lib_path.display()))?;
-    }
 
-    // --- Native classifier jars ---
-    if let Some(platform) = current_platform() {
-        let native_paths = native_jar_paths(&vj.libraries, &libraries_root, platform);
-        let natives_dir = version_dir.join("natives");
-        fs::create_dir_all(&natives_dir)
-            .with_context(|| format!("create natives dir: {}", natives_dir.display()))?;
-        for native_path in &native_paths {
-            if let Some(parent) = native_path.parent() {
-                fs::create_dir_all(parent)
-                    .with_context(|| format!("create native jar dir: {}", parent.display()))?;
+        // Main artifact (classpath entry).
+        if let Some(artifact) = &downloads.artifact {
+            let dest = libraries_root.join(&artifact.path);
+            if provider_choice == ProviderChoice::Mock {
+                write_mock_artifact(&dest, &lib.name)?;
+            } else {
+                download_artifact_via_http(&artifact, &dest)
+                    .with_context(|| format!("download library {}", lib.name))?;
             }
-            let content = mock_native_jar_bytes(&native_path.to_string_lossy());
-            fs::write(native_path, &content)
-                .with_context(|| format!("write native jar: {}", native_path.display()))?;
+        }
+
+        // Native classifier jar for the current platform, if any.
+        if let (Some(natives), Some(classifiers)) = (&lib.natives, &downloads.classifiers) {
+            if let Some(classifier_suffix) = natives.get(platform.name) {
+                if let Some(classifier_artifact) = classifiers.get(classifier_suffix) {
+                    let dest = libraries_root.join(&classifier_artifact.path);
+                    if provider_choice == ProviderChoice::Mock {
+                        write_mock_artifact(&dest, &lib.name)?;
+                    } else {
+                        download_artifact_via_http(&classifier_artifact, &dest)
+                            .with_context(|| format!("download native jar {}", lib.name))?;
+                    }
+                    native_jar_paths_to_extract.push(dest);
+                }
+            }
         }
     }
 
-    // --- Asset index ---
+    // ---------------- Native extraction ----------------
+    let natives_dir = version_dir.join("natives");
+    fs::create_dir_all(&natives_dir)
+        .with_context(|| format!("create natives dir: {}", natives_dir.display()))?;
+    if provider_choice == ProviderChoice::Mock {
+        // Mock fetchers wrote a single mock native file under natives/ for
+        // back-compat with old tests that expected mock bytes there.
+        let mock_native_path = natives_dir.join("mock-native.txt");
+        fs::write(&mock_native_path, mock_native_jar_bytes("mock"))
+            .with_context(|| format!("write mock native marker: {}", mock_native_path.display()))?;
+    } else {
+        for native_jar in &native_jar_paths_to_extract {
+            extract_native_jar(native_jar, &natives_dir).with_context(|| {
+                format!("extract native jar: {}", native_jar.display())
+            })?;
+        }
+    }
+
+    // ---------------- Asset index + asset objects ----------------
     let assets_root = game_root.join("assets");
     let indexes_dir = assets_root.join("indexes");
-    fs::create_dir_all(&indexes_dir).context("create assets/indexes dir")?;
-
-    let assets_id = vj.assets.as_deref().unwrap_or("12");
-    let asset_index_content = mock_asset_index_json(assets_id);
-    let index_path = indexes_dir.join(format!("{assets_id}.json"));
-    fs::write(&index_path, &asset_index_content).context("write asset index JSON")?;
-
-    // --- Asset objects directory ---
     let objects_dir = assets_root.join("objects");
+    fs::create_dir_all(&indexes_dir).context("create assets/indexes dir")?;
     fs::create_dir_all(&objects_dir).context("create assets/objects dir")?;
+
+    let assets_id = vj.assets.as_deref().unwrap_or("pre-1.6");
+    let index_path = indexes_dir.join(format!("{assets_id}.json"));
+
+    let asset_index_text: Vec<u8> = match (provider_choice, vj.asset_index.as_ref()) {
+        (ProviderChoice::Mock, _) => mock_asset_index_json(assets_id),
+        (_, Some(asset_ref)) => {
+            let client = http_client("fetch asset index")?;
+            let resp = client
+                .get(&asset_ref.url)
+                .send()
+                .with_context(|| format!("fetch asset index from {}", asset_ref.url))?;
+            if !resp.status().is_success() {
+                bail!(
+                    "asset index fetch from {} returned status {}",
+                    asset_ref.url,
+                    resp.status()
+                );
+            }
+            resp.bytes()
+                .map_err(|e| anyhow!("read asset index body: {e}"))?
+                .to_vec()
+        }
+        (_, None) => bail!("version JSON has no assetIndex; cannot fetch asset index"),
+    };
+    fs::write(&index_path, &asset_index_text)
+        .with_context(|| format!("write asset index: {}", index_path.display()))?;
+
+    // Parse the asset index we just wrote, then materialize objects.
+    let asset_index_text_str =
+        std::str::from_utf8(&asset_index_text).context("asset index is not UTF-8")?;
+    let asset_index: AssetIndexContent = serde_json::from_str(asset_index_text_str)
+        .context("parse asset index JSON")?;
+
+    for (name, obj) in &asset_index.objects {
+        // Mojang stores assets at: <prefix>/<hash> where prefix = first 2 chars.
+        let prefix: String = obj.hash.chars().take(2).collect();
+        let dest = objects_dir.join(&prefix).join(&obj.hash);
+        if dest.exists() {
+            continue; // already materialized
+        }
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("create asset object dir: {}", parent.display()))?;
+        }
+        if provider_choice == ProviderChoice::Mock {
+            fs::write(&dest, mock_asset_object_bytes(name))
+                .with_context(|| format!("write mock asset: {name}"))?;
+        } else {
+            let url = format!(
+                "https://resources.download.minecraft.net/{prefix}/{hash}",
+                hash = obj.hash
+            );
+            let fetcher = HttpFetcher::new(&url);
+            let opts = DownloadOptions {
+                expected_sha1: Some(obj.hash.clone()),
+                expected_size: Some(obj.size),
+                ..Default::default()
+            };
+            download_file(&dest, &fetcher, &opts).with_context(|| {
+                format!("download asset `{name}` from {url}")
+            })?;
+        }
+    }
 
     Ok(())
 }
@@ -691,6 +812,11 @@ fn mock_library_jar_bytes(library_name: &str) -> Vec<u8> {
 /// Mock native JAR bytes — deterministic content for fixture providers.
 fn mock_native_jar_bytes(classifier_path: &str) -> Vec<u8> {
     format!("mock native jar\npath={classifier_path}\n").into_bytes()
+}
+
+/// Mock asset object bytes — deterministic content for fixture providers.
+fn mock_asset_object_bytes(name: &str) -> Vec<u8> {
+    format!("mock asset\nname={name}\n").into_bytes()
 }
 
 /// Mock asset index JSON — produces a minimal valid asset index.
@@ -713,13 +839,145 @@ fn mock_asset_index_json(_assets_id: &str) -> Vec<u8> {
     serde_json::to_vec_pretty(&json).expect("serialize asset index")
 }
 
+/// Write a mock artifact file (and its parent dirs) using fixture bytes.
+/// Only used in the `--provider mock` path; mirrors what the old code wrote
+/// directly so existing tests continue to find files at the expected paths.
+fn write_mock_artifact(dest: &Path, library_name: &str) -> Result<()> {
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("create artifact dir: {}", parent.display()))?;
+    }
+    let content = mock_library_jar_bytes(library_name);
+    fs::write(dest, &content)
+        .with_context(|| format!("write mock artifact: {}", dest.display()))?;
+    Ok(())
+}
+
+/// Build a `reqwest::blocking::Client` with mcm's standard UA + timeout.
+/// Used for one-off JSON fetches (version JSON, asset index) where routing
+/// through the `download_file` engine is not necessary (no .part staging
+/// needed for a small JSON file).
+fn http_client(label: &str) -> Result<reqwest::blocking::Client> {
+    reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .user_agent("mcm/0.2.0 (Minecraft manager)")
+        .build()
+        .with_context(|| format!("build http client for {label}"))
+}
+
+/// Download a single Mojang library/native artifact via the retry-capable
+/// download engine, verifying SHA-1 and size against the version JSON.
+fn download_artifact_via_http(artifact: &LibraryArtifact, dest: &Path) -> Result<()> {
+    let fetcher = HttpFetcher::new(&artifact.url);
+    let opts = DownloadOptions {
+        expected_sha1: artifact.sha1.clone(),
+        expected_size: artifact.size,
+        ..Default::default()
+    };
+    download_file(dest, &fetcher, &opts)
+        .with_context(|| format!("download artifact from {}", artifact.url))?;
+    Ok(())
+}
+
+/// Extract a native jar's `.so`/`.dylib`/`.dll` files into the natives dir.
+/// Skips directories and metadata entries. Files are extracted flat — no
+/// subdirectory structure is preserved — which matches the Minecraft launcher
+/// convention for `--natives`.
+fn extract_native_jar(jar_path: &Path, natives_dir: &Path) -> Result<()> {
+    let file = fs::File::open(jar_path)
+        .with_context(|| format!("open native jar: {}", jar_path.display()))?;
+    let mut archive = zip::ZipArchive::new(file)
+        .with_context(|| format!("read zip archive: {}", jar_path.display()))?;
+
+    for i in 0..archive.len() {
+        let mut entry = archive
+            .by_index(i)
+            .with_context(|| format!("read zip entry {i} from {}", jar_path.display()))?;
+        let entry_name = entry.name().to_owned();
+        // Skip directories and metadata.
+        if entry.is_dir() || entry_name.starts_with("META-INF/") {
+            continue;
+        }
+        // Only extract shared libraries; ignore license/readme files etc.
+        let is_native = [".so", ".dylib", ".dll"]
+            .iter()
+            .any(|ext| entry_name.ends_with(ext));
+        if !is_native {
+            continue;
+        }
+        // Flatten: take only the basename so the JVM can find them via
+        // `-Djava.library.path=<natives_dir>`.
+        let basename = std::path::Path::new(&entry_name)
+            .file_name()
+            .ok_or_else(|| anyhow!("zip entry has no file name: {entry_name}"))?;
+        let out_path = natives_dir.join(basename);
+        let mut out = fs::File::create(&out_path)
+            .with_context(|| format!("create native file: {}", out_path.display()))?;
+        std::io::copy(&mut entry, &mut out)
+            .with_context(|| format!("extract native file: {}", out_path.display()))?;
+    }
+    Ok(())
+}
+
+/// Download the Minecraft client jar (e.g. `<version_dir>/<id>.jar`).
+///
+/// Reads `downloads.client` from the just-written Mojang version JSON to
+/// discover the URL, SHA-1, and size, then routes through the download
+/// engine for retry/resume and hash validation.
+fn download_client_jar(
+    dest: &Path,
+    version_dir: &Path,
+    resolved_version_id: &str,
+) -> Result<()> {
+    let vj_path = version_dir.join(format!("{resolved_version_id}.json"));
+    let vj = parse_version_json(&vj_path)
+        .with_context(|| format!("parse version JSON: {}", vj_path.display()))?;
+
+    let client = vj
+        .downloads
+        .as_ref()
+        .and_then(|d| d.client.as_ref())
+        .ok_or_else(|| {
+            anyhow!(
+                "version JSON for `{resolved_version_id}` has no \
+                 `downloads.client` block; cannot fetch client jar"
+            )
+        })?;
+
+    let fetcher = HttpFetcher::new(&client.url);
+    let opts = DownloadOptions {
+        expected_sha1: client.sha1.clone(),
+        expected_size: client.size,
+        ..Default::default()
+    };
+    download_file(dest, &fetcher, &opts)
+        .with_context(|| format!("download client jar from {}", client.url))?;
+    Ok(())
+}
+
+/// Download a loader jar (Fabric/Quilt/NeoForge/Forge) from the loader's
+/// canonical Maven URL into the version directory.
+///
+/// Loader manifests don't expose SHA-1/size in our `LoaderVersions` type, so
+/// we rely on Maven's HTTPS integrity and the JVM's jar verification at
+/// launch time.
+fn download_loader_jar(
+    dest: &Path,
+    loader: Loader,
+    loader_version: &str,
+    mc_version: &str,
+) -> Result<()> {
+    let url = crate::loader_install::loader_jar_url(loader, loader_version, mc_version)?;
+    let fetcher = HttpFetcher::new(&url);
+    let opts = DownloadOptions::default();
+    download_file(dest, &fetcher, &opts)
+        .with_context(|| format!("download loader jar from {url}"))?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Game artifact download helper — routes through download engine for staging
 // ---------------------------------------------------------------------------
-
-use crate::download::{
-    download_file, DownloadOptions, FetchError, FetchOutcome, Fetcher, RangeServed,
-};
 
 /// A fetcher that returns deterministic in-memory bytes (no real download).
 /// Used by [`download_game_artifact`] to route mock game/loader jar writes

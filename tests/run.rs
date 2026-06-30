@@ -340,11 +340,14 @@ user_type = "microsoft"
     home.set_default("dev");
     home.install_java("dev");
 
+    // Online mode now uses a real MicrosoftAuthProvider instead of a mock.
+    // With no refresh token, the provider reports that the session has
+    // expired and points the user at `mcm auth login`.
     home.cmd()
         .args(["run", "--dry-run"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("not yet implemented"));
+        .stderr(predicate::str::contains("mcm auth login"));
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +375,7 @@ mode = "online"
         .args(["run", "--dry-run"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("not yet implemented"));
+        .stderr(predicate::str::contains("mcm auth login"));
 }
 
 // ---------------------------------------------------------------------------
