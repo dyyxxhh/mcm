@@ -12,7 +12,7 @@ use crate::launch::build_launch_command;
 
 impl App {
     pub(crate) fn run_cmd(&self, dry_run: bool) -> Result<()> {
-        let config = self.load_config()?;
+        let mut config = self.load_config()?;
 
         let default_game = config
             .default_game
@@ -21,13 +21,45 @@ impl App {
             .or_else(|| config.games.keys().next().map(|s| s.to_owned()))
             .with_context(|| i18n::no_default_game_and_no_games(self.lang))?;
 
+        // Clone so we don't hold an immutable borrow of `config` while
+        // `build_launch_command` mutably borrows `config.launch_auth`
+        // (for in-place token refresh).
         let game = config
             .games
             .get(&default_game)
-            .with_context(|| i18n::default_game_does_not_exist(self.lang, &default_game))?;
+            .with_context(|| i18n::default_game_does_not_exist(self.lang, &default_game))?
+            .clone();
+        let global_root = config.global.root_dir.clone();
 
-        let global_root = &config.global.root_dir;
-        let command = build_launch_command(&default_game, game, global_root, &config.launch_auth)?;
+        let was_online = matches!(
+            config.launch_auth.mode,
+            crate::auth::LaunchAuthMode::Online
+        );
+        let prev_token = config
+            .launch_auth
+            .online
+            .as_ref()
+            .map(|a| a.access_token.clone());
+
+        let command = build_launch_command(
+            &default_game,
+            &game,
+            &global_root,
+            &mut config.launch_auth,
+        )?;
+
+        // If a Microsoft token was refreshed in-place during launch, persist
+        // the updated OnlineAccount so subsequent launches skip the refresh.
+        if was_online {
+            let new_token = config
+                .launch_auth
+                .online
+                .as_ref()
+                .map(|a| a.access_token.clone());
+            if new_token.as_deref() != prev_token.as_deref() {
+                self.save_config(&config).context("persist refreshed Microsoft token")?;
+            }
+        }
 
         if dry_run {
             println!("{}", command.render());
@@ -278,9 +310,9 @@ mod tests {
     fn dry_run_via_render_contains_java_path_jvm_main_class_and_auth() {
         let tmp = tempfile::tempdir().expect("tmp");
         let (game, global_root, _) = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig::default();
-        let cmd =
-            build_launch_command("dev", &game, &global_root, &auth).expect("build launch command");
+        let mut auth = LaunchAuthConfig::default();
+        let cmd = build_launch_command("dev", &game, &global_root, &mut auth)
+            .expect("build launch command");
 
         let rendered = cmd.render();
 
@@ -304,9 +336,9 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tmp");
         let (game, global_root, _) =
             build_fixture_game(&tmp, "dev", "1.21.1", Some(("fabric", "0.16.0")));
-        let auth = LaunchAuthConfig::default();
-        let cmd =
-            build_launch_command("dev", &game, &global_root, &auth).expect("build launch command");
+        let mut auth = LaunchAuthConfig::default();
+        let cmd = build_launch_command("dev", &game, &global_root, &mut auth)
+            .expect("build launch command");
 
         assert!(
             cmd.classpath
@@ -324,9 +356,9 @@ mod tests {
         let arg_log = tmp.path().join("argv.log");
 
         let (game, global_root, _) = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig::default();
-        let cmd =
-            build_launch_command("dev", &game, &global_root, &auth).expect("build launch command");
+        let mut auth = LaunchAuthConfig::default();
+        let cmd = build_launch_command("dev", &game, &global_root, &mut auth)
+            .expect("build launch command");
 
         create_fake_java_with_arg_log(&managed_dir(&tmp), &arg_log);
 
@@ -357,9 +389,9 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tmp");
 
         let (game, global_root, _) = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig::default();
-        let cmd =
-            build_launch_command("dev", &game, &global_root, &auth).expect("build launch command");
+        let mut auth = LaunchAuthConfig::default();
+        let cmd = build_launch_command("dev", &game, &global_root, &mut auth)
+            .expect("build launch command");
 
         create_fake_java_exit_code(&managed_dir(&tmp), 42);
 
@@ -380,9 +412,9 @@ mod tests {
         let cwd_log = tmp.path().join("cwd.log");
 
         let (game, global_root, _) = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig::default();
-        let cmd =
-            build_launch_command("dev", &game, &global_root, &auth).expect("build launch command");
+        let mut auth = LaunchAuthConfig::default();
+        let cmd = build_launch_command("dev", &game, &global_root, &mut auth)
+            .expect("build launch command");
 
         create_fake_java_cwd_logger(&managed_dir(&tmp), &cwd_log);
 
@@ -459,22 +491,23 @@ mod tests {
     }
 
     #[test]
-    fn dry_run_with_online_auth_fails_without_real_provider() {
+    fn dry_run_with_online_auth_errors_without_refresh_token() {
         let tmp = tempfile::tempdir().expect("tmp");
         let (game, global_root, _) = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig {
+        let mut auth = LaunchAuthConfig {
             mode: LaunchAuthMode::Online,
             online: Some(OnlineAccount {
                 username: "OnlineUser".into(),
                 uuid: "deadbeef-dead-beef-dead-beefdeadbeef".into(),
                 access_token: "real-token".into(),
                 user_type: "microsoft".into(),
+                ..Default::default()
             }),
         };
-        let err = build_launch_command("dev", &game, &global_root, &auth).unwrap_err();
+        let err = build_launch_command("dev", &game, &global_root, &mut auth).unwrap_err();
         assert!(
-            err.to_string().contains("not yet implemented"),
-            "error should mention not-yet-implemented: {err}"
+            err.to_string().contains("refresh token"),
+            "error should mention refresh token: {err}"
         );
     }
 }

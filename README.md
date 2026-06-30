@@ -42,13 +42,15 @@ MCM is under active development. The table below reflects the real implementatio
 **Partial / In progress:**
 - Dyyl host protocol (simplified text parser, not full NDJSON streaming)
 - CurseForge modpack export (import works; export returns not-implemented error)
-- Library and asset download (structure exists but downloads remain fixture/mock only, not production-verified)
-- Native jar extraction (structure exists but uses fixture data, not real artifact extraction)
 
-**Not implemented:**
-- Online Microsoft/Mojang authentication (mock provider only)
+**Implemented (real, not mock):**
+- Online Microsoft authentication via OAuth2 Device Code flow → Xbox Live → XSTS → Minecraft token (`mcm auth login/status/logout`). Tokens are persisted and auto-refreshed on launch.
+- Real Mojang version JSON fetch from `launchermeta.mojang.com` per-version URLs (real library list, asset index reference, native classifiers, client jar SHA-1/size).
+- Real client jar, library artifact, native classifier jar, and asset object downloads through the retry/resumable download engine with SHA-1 + size verification matching Mojang's published hashes.
+- Native jar extraction (`.so`/`.dylib`/`.dll`) from real classifier jars into the per-version `natives/` directory using the `zip` crate.
+- Real loader jar downloads (Fabric, Quilt, NeoForge, Forge) from each loader's canonical Maven repository.
 
-MCM aims to be a strong Linux x86_64 CLI alternative to HMCL and PCL for specific workflows. It does not claim full parity with either launcher. Features like GUI mod management, Windows/macOS support, and real Mojang API integration are outside the current scope.
+MCM aims to be a strong Linux x86_64 CLI alternative to HMCL and PCL for specific workflows. It does not claim full parity with either launcher. Features like GUI mod management and Windows/macOS support are outside the current scope.
 
 ## CLI grammar
 
@@ -73,6 +75,7 @@ mcm do [file] [-y]                  # execute an .mcm v2 lock file (higher-power
 mcm run [--dry-run]                 # launch the default game
 mcm config                          # interactive global config editor
 mcm user <subcommand>               # global user configuration
+mcm auth <subcommand>               # Microsoft account login/status/logout
 mcm mods <subcommand>               # mod-manager group (alias: mod)
 mcm serve --mode <mode> [--bind]    # run HTTP service (share/source/both)
 ```
@@ -249,7 +252,19 @@ mcm run                                    # launch the default game
 mcm run --dry-run                          # print the launch command only
 ```
 
-The launcher resolves Java, classpath, assets, and natives from the game instance, then executes the Minecraft client with the correct arguments. Authentication supports offline mode and a mock online provider with session tests. Real Microsoft/Mojang authentication is not yet implemented.
+The launcher resolves Java, classpath, assets, and natives from the game instance, then executes the Minecraft client with the correct arguments. Authentication supports offline mode and online Microsoft authentication. Online mode uses the real OAuth2 Device Code flow (`mcm auth login`) and auto-refreshes expired access tokens using the stored refresh token before launch; the refreshed account is persisted back to `config.toml`.
+
+### `auth` subcommands
+
+Microsoft account management. `login` runs the OAuth2 Device Code flow (opens a browser at microsoft.com/link), exchanges the resulting token through Xbox Live → XSTS → Minecraft, and persists the account (username, UUID, access token, refresh token, expiry) to `config.toml` under `[launch_auth.online]` with `mode = "online"`.
+
+```bash
+mcm auth login      # start device-code login flow
+mcm auth status     # show current account + session validity + refresh token availability
+mcm auth logout     # reset to offline mode and clear stored account
+```
+
+The well-known public Microsoft client ID `00000000402b5348` is used (no client secret required for the device-code flow). To switch back to offline mode without removing the account, set `mode = "offline"` in `config.toml`.
 
 ### `user` subcommands
 

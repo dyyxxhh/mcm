@@ -18,6 +18,7 @@
 //! - `profile_cmd` — `mods add`/`use`/`show`/`profile-list` implementations on `App`
 //! - `game_cmd` — `game default/list/info/rename/config` implementations on `App`
 //! - `game_install` — `game install/remove` with version/loader resolution and disk operations
+//! - `loader_install` — loader jar URL computation (Fabric/Quilt/Forge/NeoForge)
 //! - `source_cmd` — `source add/remove/info/list` implementations on `App`
 //! - `pkg_cmd` — `pkg install/download/make/share/list` + top-level `install` / `do` on `App`
 //! - `pkg_install` — package apply logic (mod jars + assets + script execution)
@@ -25,7 +26,9 @@
 //! - `queries` — `search`/`info`/`list`/`status` command implementations on `App`
 //! - `lifecycle` — `install`/`remove`/`autoremove` command implementations on `App`
 //! - `util` — `atomic_write`, `sha256_hex`
-//! - `auth` — mock Microsoft/Mojang auth session types (deterministic, testable)
+//! - `auth` — Microsoft/Mojang auth session types, `OnlineSessionProvider` trait
+//! - `auth_microsoft` — real Microsoft OAuth2 device code flow → XBL → XSTS → MC token
+//! - `auth_cmd` — `mcm auth login/status/logout` Microsoft account management
 //! - `launch` — typed launch command builder with explicit stages
 //! - `run_cmd` — `run` command dispatch on `App`
 //! - `upgrade` — `upgrade`/`full-upgrade` semantics with owner-mismatch and
@@ -37,6 +40,8 @@
 
 mod app;
 mod auth;
+mod auth_cmd;
+mod auth_microsoft;
 mod cli;
 mod config;
 mod confirmation;
@@ -49,6 +54,7 @@ mod install;
 mod jar_info;
 mod launch;
 mod lifecycle;
+mod loader_install;
 mod lock;
 mod mc_target;
 mod mcm_package;
@@ -77,8 +83,8 @@ mod version_manifest;
 mod version_resolver;
 
 pub use cli::{
-    Cli, Command, GameCommand, GameConfigSubcommand, LangChoice, MakeFormat, ModsCommand,
-    PkgAuthCommand, PkgCommand, ProviderChoice, SourceCommand, UserCommand,
+    AuthCommand, Cli, Command, GameCommand, GameConfigSubcommand, LangChoice, MakeFormat,
+    ModsCommand, PkgAuthCommand, PkgCommand, ProviderChoice, SourceCommand, UserCommand,
 };
 pub use config::Side;
 pub use mc_target::{parse_mc_target, Loader, McTarget};

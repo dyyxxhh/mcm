@@ -157,6 +157,7 @@ pub(crate) fn run(cli: Cli, lang: Lang) -> Result<()> {
         Some(Command::Make { output }) => app.make_dyyl(&output),
         Some(Command::Run { dry_run }) => app.run_cmd(dry_run),
         Some(Command::Config) => Err(anyhow!(i18n::config_not_implemented_yet(lang))),
+        Some(Command::Auth { command }) => app.auth(command),
         Some(Command::User { command }) => app.user(command),
 
         // Mod-manager group (`mods` / `mod` alias).

@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{bail, Result};
+use sha1::Sha1;
 use sha2::{Digest, Sha256};
 
 /// Maximum retry attempts (total requests = 1 + retries).
@@ -79,6 +80,9 @@ pub struct DownloadOptions {
     /// Expected SHA-256 hex digest. If set, the downloaded file is verified
     /// and a mismatch is a permanent error (`.part` deleted, no finalize).
     pub expected_sha256: Option<String>,
+    /// Expected SHA-1 hex digest. Mojang artifacts publish SHA-1; if set,
+    /// the downloaded file is verified and a mismatch is a permanent error.
+    pub expected_sha1: Option<String>,
     /// Expected file size in bytes. If set, size mismatch is permanent.
     pub expected_size: Option<u64>,
     /// Maximum total attempts (1 + retries). Default 5.
@@ -94,6 +98,7 @@ impl Default for DownloadOptions {
     fn default() -> Self {
         Self {
             expected_sha256: None,
+            expected_sha1: None,
             expected_size: None,
             max_attempts: MAX_ATTEMPTS,
             backoff_base_ms: BACKOFF_BASE_MS,
@@ -210,6 +215,16 @@ fn try_download(
             )));
         }
     }
+    if let Some(ref expected_sha1) = opts.expected_sha1 {
+        let actual_sha1 = sha1_hex_file(part)
+            .map_err(|e| FetchError::Permanent(format!("sha1 read: {e}")))?;
+        if &actual_sha1 != expected_sha1 {
+            let _ = fs::remove_file(part);
+            return Err(FetchError::Permanent(format!(
+                "sha1 mismatch: expected {expected_sha1}, got {actual_sha1}"
+            )));
+        }
+    }
     if let Some(expected_size) = opts.expected_size {
         let actual_size = fs::metadata(part).map(|m| m.len()).unwrap_or(0);
         if actual_size != expected_size {
@@ -230,6 +245,11 @@ fn try_download(
 fn sha256_hex_file(path: &Path) -> Result<String> {
     let bytes = fs::read(path)?;
     Ok(hex::encode(Sha256::digest(&bytes)))
+}
+
+fn sha1_hex_file(path: &Path) -> Result<String> {
+    let bytes = fs::read(path)?;
+    Ok(hex::encode(Sha1::digest(&bytes)))
 }
 
 fn part_path(dest: &Path) -> PathBuf {

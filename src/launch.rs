@@ -117,7 +117,7 @@ pub(crate) fn build_launch_command(
     default_game: &str,
     game: &GameRecord,
     global_root: &Path,
-    launch_auth: &LaunchAuthConfig,
+    launch_auth: &mut LaunchAuthConfig,
 ) -> Result<LaunchCommand> {
     // Stage 1: Precheck
     let mc_version = game.mc_version.as_deref().with_context(|| {
@@ -203,20 +203,19 @@ fn select_java(game: &GameRecord, global_root: &Path) -> Result<JavaRuntime> {
     }
 }
 
-fn resolve_auth(config: &LaunchAuthConfig) -> Result<AuthSession> {
-    match &config.mode {
+fn resolve_auth(config: &mut LaunchAuthConfig) -> Result<AuthSession> {
+    match config.mode {
         crate::auth::LaunchAuthMode::Offline => crate::auth::resolve_launch_session(
             &config.mode,
-            config.online.as_ref(),
+            config.online.as_mut(),
+            // Offline mode never invokes the provider; pass a mock.
             &crate::auth::MockOnlineProvider::success(),
         ),
-        crate::auth::LaunchAuthMode::Online => {
-            bail!(
-                "online auth mode requires a real Microsoft/Mojang token provider; \
-                 real authentication is not yet implemented. Use offline mode or \
-                 configure a mock session for testing."
-            );
-        }
+        crate::auth::LaunchAuthMode::Online => crate::auth::resolve_launch_session(
+            &config.mode,
+            config.online.as_mut(),
+            &crate::auth::MicrosoftAuthProvider::new(),
+        ),
     }
 }
 
@@ -564,27 +563,28 @@ mod tests {
 
     #[test]
     fn resolve_auth_offline_default() {
-        let config = LaunchAuthConfig::default();
-        let session = resolve_auth(&config).expect("offline should succeed");
+        let mut config = LaunchAuthConfig::default();
+        let session = resolve_auth(&mut config).expect("offline should succeed");
         assert_eq!(session.username, "Player");
         assert_eq!(session.access_token, "0");
     }
 
     #[test]
-    fn resolve_auth_online_with_account_fails_without_real_provider() {
-        let config = LaunchAuthConfig {
+    fn resolve_auth_online_without_refresh_token_errors() {
+        let mut config = LaunchAuthConfig {
             mode: LaunchAuthMode::Online,
             online: Some(crate::auth::OnlineAccount {
                 username: "OnlineUser".into(),
                 uuid: "deadbeef-dead-beef-dead-beefdeadbeef".into(),
                 access_token: "real-token".into(),
                 user_type: "microsoft".into(),
+                ..Default::default()
             }),
         };
-        let err = resolve_auth(&config).unwrap_err();
+        let err = resolve_auth(&mut config).unwrap_err();
         assert!(
-            err.to_string().contains("not yet implemented"),
-            "error should mention not-yet-implemented: {err}"
+            err.to_string().contains("refresh token"),
+            "error should mention refresh token: {err}"
         );
     }
 
@@ -735,9 +735,9 @@ mod tests {
     fn full_pipeline_vanilla_produces_valid_launch_command() {
         let tmp = tempfile::tempdir().expect("tmp");
         let game = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig::default();
+        let mut auth = LaunchAuthConfig::default();
         let cmd =
-            build_launch_command("dev", &game, tmp.path(), &auth).expect("build should succeed");
+            build_launch_command("dev", &game, tmp.path(), &mut auth).expect("build should succeed");
 
         // Classpath should contain game jar + libraries
         assert!(
@@ -786,9 +786,9 @@ mod tests {
     fn full_pipeline_fabric_uses_version_json_main_class() {
         let tmp = tempfile::tempdir().expect("tmp");
         let game = build_fixture_game(&tmp, "dev", "1.21.1", Some(("fabric", "0.16.0")));
-        let auth = LaunchAuthConfig::default();
+        let mut auth = LaunchAuthConfig::default();
         let cmd =
-            build_launch_command("dev", &game, tmp.path(), &auth).expect("build should succeed");
+            build_launch_command("dev", &game, tmp.path(), &mut auth).expect("build should succeed");
 
         // Main class from version JSON (not loader-based fallback)
         assert_eq!(cmd.main_class, "net.minecraft.client.main.Main");
@@ -805,9 +805,9 @@ mod tests {
     fn full_pipeline_extracts_natives() {
         let tmp = tempfile::tempdir().expect("tmp");
         let game = build_fixture_game(&tmp, "dev", "1.21.1", None);
-        let auth = LaunchAuthConfig::default();
+        let mut auth = LaunchAuthConfig::default();
         let cmd =
-            build_launch_command("dev", &game, tmp.path(), &auth).expect("build should succeed");
+            build_launch_command("dev", &game, tmp.path(), &mut auth).expect("build should succeed");
 
         // Natives directory should exist and contain the native jar
         assert!(cmd.natives_dir.exists(), "natives dir should be created");
@@ -830,8 +830,8 @@ mod tests {
         let mut game_config = game.clone();
         game_config.version_config = GameConfig::default();
 
-        let auth = LaunchAuthConfig::default();
-        let cmd = build_launch_command("dev", &game_config, tmp.path(), &auth)
+        let mut auth = LaunchAuthConfig::default();
+        let cmd = build_launch_command("dev", &game_config, tmp.path(), &mut auth)
             .expect("build should succeed");
 
         let expected_uuid = crate::auth::offline_uuid("Player");
@@ -852,8 +852,8 @@ mod tests {
             resolved_version_id: None,
             version_config: GameConfig::default(),
         };
-        let auth = LaunchAuthConfig::default();
-        let err = build_launch_command("empty", &game, Path::new("/tmp"), &auth).unwrap_err();
+        let mut auth = LaunchAuthConfig::default();
+        let err = build_launch_command("empty", &game, Path::new("/tmp"), &mut auth).unwrap_err();
         assert!(err.to_string().contains("no mc_version"), "{err}");
     }
 
@@ -880,8 +880,8 @@ mod tests {
             resolved_version_id: Some("1.21.1".into()),
             version_config: GameConfig::default(),
         };
-        let auth = LaunchAuthConfig::default();
-        let err = build_launch_command("dev", &game, tmp.path(), &auth).unwrap_err();
+        let mut auth = LaunchAuthConfig::default();
+        let err = build_launch_command("dev", &game, tmp.path(), &mut auth).unwrap_err();
         assert!(
             err.to_string().contains("version metadata not found"),
             "error should mention missing metadata: {err}"
@@ -917,8 +917,8 @@ mod tests {
             resolved_version_id: Some("1.21.1".into()),
             version_config: GameConfig::default(),
         };
-        let auth = LaunchAuthConfig::default();
-        let err = build_launch_command("dev", &game, tmp.path(), &auth).unwrap_err();
+        let mut auth = LaunchAuthConfig::default();
+        let err = build_launch_command("dev", &game, tmp.path(), &mut auth).unwrap_err();
         assert!(
             err.to_string().contains("game jar not found"),
             "error should mention missing jar: {err}"
