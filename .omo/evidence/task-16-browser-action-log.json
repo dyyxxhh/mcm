@@ -1,0 +1,49 @@
+[
+  {
+    "action": "open login",
+    "url": "http://127.0.0.1:18951/",
+    "artifact": ".omo/evidence/task-16-375-login.png"
+  },
+  {
+    "action": "click Sign in with OIDC",
+    "result": "mock /api/auth/oidc/start + callback completed; redirected to /dashboard; owner browser-user visible"
+  },
+  {
+    "action": "dashboard empty state",
+    "artifact": ".omo/evidence/task-16-375-dashboard-empty.png"
+  },
+  {
+    "action": "malformed publish form",
+    "input": "{bad json",
+    "result": "Content is not valid JSON. error displayed"
+  },
+  {
+    "action": "publish sample package",
+    "slug": "task-sixteen-sample",
+    "result": "dashboard package row visible"
+  },
+  {
+    "action": "detail commands",
+    "result": "bootstrap and package install commands visible; copy buttons clicked",
+    "artifact": ".omo/evidence/task-16-768-detail-commands.png"
+  },
+  {
+    "action": "same-day update",
+    "result": "Daily publish limit reached error displayed",
+    "artifact": ".omo/evidence/task-16-1280-update-daily-limit.png"
+  },
+  {
+    "action": "delete package",
+    "result": "confirm accepted; dashboard empty state returned",
+    "artifact": ".omo/evidence/task-16-dashboard-after-delete-snapshot.md"
+  },
+  {
+    "action": "separate test-day boundary",
+    "result": "push timestamps reset to 1970 in isolated QA SQLite DB to simulate next-day/window"
+  },
+  {
+    "action": "allowed update success",
+    "slug": "task-sixteen-update-ok",
+    "result": "published 1.0.0, reset push window, updated to 1.0.1, dashboard showed version 1.0.1"
+  }
+]

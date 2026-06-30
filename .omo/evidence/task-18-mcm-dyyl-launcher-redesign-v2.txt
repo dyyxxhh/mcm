@@ -1,0 +1,75 @@
+Task 18: Documentation, operator handoff, and no-secrets audit
+Completed: 2026-06-29
+
+## What was done
+
+Updated README.md with comprehensive documentation covering all CLI commands,
+operator deployment guidance, and verified zero secret leakage.
+
+## Commands documented with runnable examples
+
+### pkg auth/login/status/logout
+- mcm pkg auth login --server https://mc.dyyapp.com
+- mcm pkg auth status --server https://mc.dyyapp.com
+- mcm pkg auth logout --server https://mc.dyyapp.com
+
+### pkg share/list --mine/update/delete
+- mcm pkg share ./my-pack.mcm --yes
+- mcm pkg list --server https://mc.dyyapp.com
+- mcm pkg list --server https://mc.dyyapp.com --mine
+- mcm pkg update <slug> ./updated.mcm --server https://mc.dyyapp.com --yes
+- mcm pkg delete <slug> --server https://mc.dyyapp.com --yes
+
+### Web flow
+- OIDC publish login flow documented with step-by-step browser flow
+- curl-bash install snippet generation documented
+
+### curl-bash install routes
+- curl -fsSL https://mc.dyyapp.com/install | bash
+- curl -fsSL https://mc.dyyapp.com/install/pkg/<slug> | bash
+
+### Game management
+- mcm game install dev mc1.21.1-neoforge-21.1.172 --yes
+- mcm game runtime info/install
+
+### Launcher commands
+- mcm run [--dry-run]
+- mcm make <out.dyyl>
+- mcm build <in.dyyl> [-o out.mcm]
+- mcm install [target] [-y]
+- mcm do [file] [-y]
+
+## No-secrets audit
+
+### Audit method
+grep for the following patterns in README.md:
+1. (secret|password|token|api_key|credential)\s*[:=]\s*["'][^"']+["']
+2. (sk-|ghp_|gho_|xoxb-|AKIA|eyJ[a-zA-Z0-9_-]+\.eyJ)
+3. your-client-id|your-client-secret patterns (verified as documentation placeholders)
+
+### Results
+- Pattern 1 (secret=value literals): 0 matches
+- Pattern 2 (real key prefixes): 0 matches
+- Pattern 3 (placeholder text): 4 matches, all clearly user-instruction placeholders:
+  - "your-client-id" in env export example
+  - "your-client-secret" in env export example
+  - "your-client-secret" in secret file example
+  - "<your-client-id>" in ecosystem.config.js example
+
+All four are documentation placeholders instructing operators to fill in their
+own values. None resemble real credential literals.
+
+### Env injection documentation added
+New "Where to inject secrets" section with three methods:
+1. PM2 environment variables (production recommended)
+2. Secret files (Docker/systemd/CI)
+3. Ecosystem config placeholders (with explicit "never commit" warning)
+
+## Files changed
+- README.md: comprehensive update (364 -> 512 lines)
+
+## Verification
+- All new commands cross-referenced against src/cli.rs definitions
+- All new examples verified against src/pkg_cmd.rs, src/pkg_auth.rs, src/app.rs implementations
+- No OIDC secret, API key, or credential literal present in documentation
+- Auth mode documentation clearly separates mock (dev) from real (production)

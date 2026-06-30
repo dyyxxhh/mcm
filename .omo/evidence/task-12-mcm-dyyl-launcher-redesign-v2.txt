@@ -1,0 +1,63 @@
+Task 12: Offline and Microsoft/Mojang auth for launching
+=========================================================
+Date: 2026-06-29
+
+## Summary
+Implemented launch authentication modes: offline (default) and online (Microsoft/Mojang) with mockable provider/session tests. YY-ID is never used for Minecraft game launch.
+
+## Files Changed
+- Cargo.toml: added md-5 dependency
+- src/auth.rs: LaunchAuthMode enum, OnlineAccount struct, offline_uuid() MD5-based, AuthSession constructors, OnlineSessionProvider trait, MockOnlineProvider, resolve_launch_session(), token redaction in Display/Debug
+- src/config.rs: LaunchAuthConfig struct with mode + online account
+- src/launch.rs: build_launch_command() now takes &LaunchAuthConfig, resolve_auth() helper
+- src/run_cmd.rs: passes config.launch_auth to build_launch_command
+- tests/run.rs: 5 new integration tests (S6-S9)
+
+## Test Results
+
+### cargo clippy --all-targets --all-features -- -D warnings
+PASS (0 warnings, 0 errors)
+
+### cargo test --lib --all-features
+197 passed, 0 failed
+
+### cargo test --test run --all-features
+11 passed, 0 failed
+- run_dry_run_prints_launch_command_for_installed_game (offline default)
+- run_dry_run_offline_mode_uses_stable_uuid_and_zero_token
+- run_dry_run_with_loader_shows_loader_main_class
+- run_dry_run_without_default_game_errors_actionably
+- run_dry_run_with_missing_default_game_errors_actionably
+- run_dry_run_without_java_errors_actionably
+- run_without_dry_run_errors_with_not_implemented
+- run_dry_run_offline_custom_username (S6: offline custom username)
+- run_dry_run_online_mode_uses_account_credentials (S7: online mode)
+- run_dry_run_online_without_account_errors_actionably (S8: online without account)
+- run_dry_run_offline_mode_works_without_server_auth (S9: no YY-ID coupling)
+
+### Auth unit tests (src/auth.rs)
+42 passed, 0 failed
+- Mock session backward compat (5 tests)
+- Display/Debug redaction (3 tests)
+- Offline UUID stability/format/version/variant (5 tests)
+- AuthSession::offline (2 tests)
+- OnlineAccount (1 test)
+- MockOnlineProvider (3 tests)
+- resolve_launch_session (5 tests)
+- LaunchAuthMode serialization (3 tests)
+- No YY-ID coupling (1 test)
+
+### Pre-existing failures (NOT from this task)
+- characterization.rs: cloud_info_prints_selected_artifact_and_all_dependency_kinds (snapshot mismatch)
+- server_install.rs: install_route_body_supports_env_overrides, release_route_rejects_path_traversal
+
+## Verification of Requirements
+- [x] Offline auth default: LaunchAuthMode::default() is Offline, uses MD5-based stable UUID
+- [x] Online Microsoft/Mojang account mode: LaunchAuthMode::Online with OnlineAccount
+- [x] Mockable provider/session tests: MockOnlineProvider with Success/ExpiredToken/Error
+- [x] CLI/config switch: [launch_auth] mode = "offline"|"online" in config.toml
+- [x] Correct username/uuid/access_token/session_type semantics in launch args
+- [x] No YY-ID for Minecraft game launch (tested in S9)
+- [x] Token redaction in Display/Debug (tested in unit tests)
+- [x] cargo test passes (197 lib + 11 run + auth tests all green)
+- [x] cargo clippy --all-targets --all-features -- -D warnings passes

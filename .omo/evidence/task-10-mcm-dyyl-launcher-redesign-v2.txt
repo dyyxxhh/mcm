@@ -1,0 +1,84 @@
+=== Task 10 Evidence ===
+Date: 2026-06-29T00:09:49+08:00
+
+=== cargo clippy ===
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.81s
+
+=== cargo test --lib (unit tests) ===
+test result: ok. 172 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+
+=== cargo test --test game_install (integration) ===
+test game_install_dry_run_forge_resolves ... ok
+test game_install_dry_run_fabric_resolves ... ok
+test game_install_dry_run_mc1211_fabric_pinned_loader ... ok
+test game_install_at_latest_form_rejected ... ok
+test game_install_dry_run_mc1211_fabric_resolves_latest_loader ... ok
+test game_install_dry_run_exact_pinned_loader ... ok
+test game_install_dry_run_mc1211_forge_pinned_loader ... ok
+test game_install_dry_run_mc1211_forge_resolves_latest_loader ... ok
+test game_install_dry_run_mc1211_quilt_pinned_loader ... ok
+test game_install_dry_run_mc1211_quilt_resolves_latest_loader ... ok
+test game_install_dry_run_mc_fabric_resolves_latest ... ok
+test game_install_dry_run_mc_neoforge_resolves_latest ... ok
+test game_install_dry_run_mc1211_resolves_specific ... ok
+test game_install_dry_run_mc_forge_resolves_latest ... ok
+test game_install_dry_run_mc_quilt_resolves_latest ... ok
+test game_install_dry_run_mc_neoforge_resolves_latest_compatible_pair ... ok
+test game_install_dry_run_mc_resolves_latest_vanilla ... ok
+test game_install_already_exists_errors ... ok
+test game_install_dry_run_mc_version_neoforge_resolves_specific_mc_latest_loader ... ok
+test game_install_dry_run_quilt_resolves ... ok
+test game_install_dry_run_mc_version_resolves_specific ... ok
+test game_install_nonexistent_loader_version_errors ... ok
+test game_install_persists_all_fields_in_config ... ok
+test game_install_fabric_creates_metadata_and_loader_files ... ok
+test game_install_unsupported_loader_for_mc_version_errors ... ok
+test game_install_unknown_mc_version_errors ... ok
+test game_install_forge_creates_metadata_and_loader_files ... ok
+test game_install_latest_loader_creates_metadata_and_loader_files ... ok
+test game_install_vanilla_creates_version_json_with_mojang_fields ... ok
+test game_install_vanilla_no_loader_dir_created ... ok
+test game_install_quilt_creates_metadata_and_loader_files ... ok
+test game_install_vanilla_version_json_persists ... ok
+test game_install_vanilla_creates_version_files_under_temp_root ... ok
+test game_install_without_yes_fails_in_non_interactive ... ok
+test game_remove_without_install_first_errors ... ok
+test game_install_with_loader_creates_metadata_and_loader_dir ... ok
+test game_install_with_loader_persists_loader_version_in_metadata ... ok
+test game_remove_without_yes_fails_in_non_interactive ... ok
+test game_remove_with_yes_succeeds ... ok
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+=== cargo test --test game_config ===
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+=== Changes ===
+Files modified:
+  src/game_install.rs - Enriched write_version_json with Mojang-format metadata (libraries, arguments, assetIndex, downloads)
+  tests/game_install.rs - Added 20+ new tests covering all acceptance criteria target formats
+
+=== Acceptance criteria coverage ===
+Target format tests (all PASS):
+  mc (latest vanilla) - dry-run + real install
+  mc1.21.1 (specific vanilla) - dry-run + real install
+  mc-fabric (latest MC + latest Fabric) - dry-run
+  mc1.21.1-fabric (specific MC + latest Fabric) - dry-run
+  mc1.21.1-fabric-0.15.0 (pinned Fabric) - dry-run + real install
+  mc-forge (latest MC + latest Forge) - dry-run
+  mc1.21.1-forge (specific MC + latest Forge) - dry-run
+  mc1.21.1-forge-52.0.0 (pinned Forge) - dry-run + real install
+  mc-neoforge (latest MC + latest NeoForge) - dry-run
+  mc1.21.1-neoforge (specific MC + latest NeoForge) - dry-run
+  mc1.21.1-neoforge-21.1.172 (pinned NeoForge) - dry-run + real install
+  mc-quilt (latest MC + latest Quilt) - dry-run
+  mc1.21.1-quilt (specific MC + latest Quilt) - dry-run
+  mc1.21.1-quilt-0.26.0 (pinned Quilt) - dry-run
+  mc1.21.1-quilt-0.27.0 (pinned Quilt) - dry-run + real install
+
+Version JSON now includes Mojang-format fields:
+  id, type, mainClass, arguments (jvm+game), libraries, assetIndex, downloads
+
+=== HMCL/PCL provenance ===
+  https://minecraft.wiki/w/Java_Edition_version_format
+  https://launchermeta.mojang.com/mc/game/version_manifest_v2.json
+All fields are based on public Mojang specification, not HMCL or PCL code.

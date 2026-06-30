@@ -1,0 +1,250 @@
+Task 10: Dyyl Host Protocol Gap Analysis and Evidence
+=====================================================
+
+Date: 2025-06-29
+Auditor: Sisyphus-Junior (ultrawork)
+Status: AUDIT COMPLETE — RED test confirmed, gap analysis documented
+
+## 1. RED TEST STATUS
+
+RED test exists: tests/game_install.rs:1089-1151
+  Test name: dyyl_build_produces_host_protocol_output
+  Status: FAILING (RED) — correct behavior
+  
+RED proof output:
+  step 0 must have `source_line` metadata from dyyl host protocol,
+  got: {"args":{"0":"dev","1":"1.21.1"},"op":"game.choose","permission":"install"}
+  
+Conclusion: The test fails because build_dyyl() does NOT produce source_line
+metadata. This confirms the gap between current implementation and the
+NDJSON host protocol requirement.
+
+Existing passing tests (regression baseline):
+  - build_creates_v2_lock_from_dyyl: PASS
+  - make_exports_dyyl_source: PASS
+  - build_default_output_is_input_mcm: PASS
+
+
+## 2. GAP ANALYSIS: CURRENT vs REQUIRED
+
+### 2A. Protocol Format Gap
+
+CURRENT: `parse_dyyl_to_lock()` (src/pkg_cmd.rs:356-383)
+  - Reads .dyyl file as plain text line-by-line
+  - Parses `mcm.op(args);` syntax via string splitting
+  - Extracts ops via `strip_prefix("mcm.")` and `find('(')`
+  - Arguments parsed via `parse_dyyl_args()` using comma-split and colon-split
+  - All values become strings (no type distinction)
+  - NO process spawning — just reads the file directly
+
+REQUIRED: NDJSON host protocol (plan v2:199-204)
+  - MCM spawns dyyl binary with `--host-json` flag
+  - dyyl writes NDJSON to stdout: { "type":"mcm_command", "id":"...",
+    "name":"mcm.game.choose", "args": [...], "source_line":"..." }
+  - MCM responds via stdin: { "type":"mcm_response", "id":"...", "ok":true, "value":... }
+  - MCM reads responses and correlates by `id`
+  - 60s timeout per command (error.code="host_timeout")
+  - Parallel safety support (parallel_safe field)
+  - Error sentinels: { "type":"mcm_response", "id":"...", "ok":false,
+    "error": {"code":"...", "message":"..."} }
+
+### 2B. source_line Metadata Gap
+
+CURRENT: `new_step()` (src/mcm_package.rs:446-452)
+  - Always sets source_line: None
+  - The LockStep struct has `source_line: Option<String>` (line 86)
+  - But no code path ever populates it during build
+
+REQUIRED: Every step from NDJSON must carry source_line
+  - The NDJSON `mcm_command` event includes `source_line` field
+  - MCM must propagate this to LockStep.source_line
+  - Test asserts: `step.get("source_line").is_some()` for every step
+
+### 2C. Determinism Gap
+
+CURRENT: `parse_dyyl_to_lock()` produces deterministic output
+  - Same text input → same steps (string parsing is deterministic)
+  - But this is a side effect, not a protocol guarantee
+
+REQUIRED: Determinism via host protocol
+  - Same .dyyl source → dyyl produces same NDJSON events
+  - MCM records events in order → deterministic v2 lock
+  - Test asserts: two builds of same .dyyl produce identical JSON steps
+
+### 2D. Argument Parsing Gap
+
+CURRENT: `parse_dyyl_args()` (src/pkg_cmd.rs:399-416)
+  - Positional args keyed by index: {"0":"dev","1":"1.21.1"}
+  - Key:value pairs: {"game":"dev","version":"1.21.1"}
+  - All values become strings (no number/bool/array distinction)
+
+REQUIRED: JSON-native arguments from NDJSON
+  - args field in mcm_command is a JSON array
+  - Values retain JSON types (strings, numbers, booleans, arrays, objects)
+  - No lossy string conversion
+
+### 2E. Process Model Gap
+
+CURRENT: No process spawning
+  - build_dyyl reads file, calls parse_dyyl_to_lock, writes JSON
+  - No dyyl binary involvement
+
+REQUIRED: Spawn dyyl as subprocess
+  - MCM must find and spawn dyyl binary
+  - Communicate via stdin/stdout NDJSON streams
+  - Handle process lifecycle (spawn, read, write, timeout, kill)
+  - Handle dyyl crashes and non-zero exit codes
+
+
+## 3. EXACT FUNCTIONS/CODE THAT MUST CHANGE
+
+### 3A. Functions to Replace/Remove
+
+1. parse_dyyl_to_lock() — src/pkg_cmd.rs:356-383
+   Status: MUST BE REPLACED
+   Reason: Text-line parser that violates the NDJSON host protocol
+   Replacement: NDJSON host protocol reader that spawns dyyl process
+
+2. parse_dyyl_args() — src/pkg_cmd.rs:399-416
+   Status: MUST BE REPLACED
+   Reason: Custom string parsing instead of JSON-native args
+   Replacement: serde_json deserialization of NDJSON args array
+
+3. parse_dyyl_value() — src/pkg_cmd.rs:419-425
+   Status: MUST BE REMOVED
+   Reason: All values coerced to strings, no JSON type preservation
+   Replacement: Native JSON value handling from NDJSON
+
+### 3B. Functions to Modify
+
+4. build_dyyl() — src/pkg_cmd.rs:104-126
+   Status: MUST BE REWRITTEN
+   Current: reads file → parse_dyyl_to_lock → write JSON
+   Required: reads file → spawn dyyl with --host-json → NDJSON protocol
+     → collect events → build lock from events → write JSON
+   Key changes:
+   - Add dyyl process spawning (Command::new("dyyl").arg("--host-json"))
+   - Add NDJSON line reader on dyyl stdout
+   - Add NDJSON line writer on dyyl stdin (for responses)
+   - Add 60s timeout per command
+   - Add error handling for process failures
+
+5. classify_mcm_op() — src/pkg_cmd.rs:386-396
+   Status: MAY NEED ADJUSTMENT
+   Current: maps text op names to permissions
+   Required: still needed to map NDJSON command names to permissions
+   Change: input may change from "game.choose" to "mcm.game.choose"
+     depending on whether dyyl includes or excludes the "mcm." prefix
+
+6. new_step() — src/mcm_package.rs:446-452
+   Status: MUST ADD source_line PARAMETER
+   Current: source_line always None
+   Required: accept source_line: Option<String> parameter
+   Or: builder pattern to set source_line after creation
+
+### 3C. New Code Required
+
+7. NDJSON Protocol Types (new module or in pkg_cmd.rs)
+   - McmCommand { type, id, name, args, source_line, parallel_safe? }
+   - McmResponse { type, id, ok, value?, error? }
+   - McmError { code, message }
+   - HostProtocol reader/writer struct
+
+8. Dyyl Process Spawner
+   - Find dyyl binary (PATH lookup or configured path)
+   - Spawn with --host-json flag
+   - Set up stdin/stdout NDJSON streams
+   - Manage process lifecycle
+
+9. Host Protocol State Machine
+   - Send command, wait for response (correlated by id)
+   - Handle timeout (60s default)
+   - Handle error sentinels
+   - Handle parallel_safe commands
+
+
+## 4. COMPLIANCE STATUS vs PLAN REQUIREMENTS
+
+Plan: mcm-dyyl-launcher-redesign-v2.md:199-204
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| NDJSON over stdio | MISSING | Current uses text parsing, no NDJSON |
+| dyyl-to-host mcm_command events | MISSING | No event types defined |
+| host-to-dyyl mcm_response events | MISSING | No response handling |
+| id correlation | MISSING | No id field in protocol |
+| source_line metadata | MISSING | new_step() always sets None |
+| 60s timeout | MISSING | No timeout mechanism |
+| parallel_safe support | MISSING | No parallel handling |
+| error.code sentinel | MISSING | No error protocol |
+| Deterministic v2 lock | PARTIAL | Text parsing is deterministic |
+| mcm install never runs dyyl | PASS | do_file() rejects .dyyl |
+| mcm build produces v2 lock | PARTIAL | Produces lock but not via protocol |
+
+Plan: hmcl-parity-correction-backlog.md:160-166
+
+| Acceptance Criterion | Status | Evidence |
+|---|---|---|
+| Tests cover NDJSON protocol shapes | RED EXISTS | dyyl_build_produces_host_protocol_output FAILS |
+| mcm build must spawn/use host protocol | MISSING | No process spawning |
+| No test may pass by direct string parsing | FAILING | build_creates_v2_lock_from_dyyl uses text parser |
+| mcm do sample.dyyl --yes supported | MISSING | do_file() rejects .dyyl files |
+| mcm install sample.mcm never spawns dyyl | PASS | Only parses .mcm JSON |
+| Deterministic v2 JSON output | PARTIAL | Deterministic but not via protocol |
+| source_line in every step | MISSING | source_line always None |
+
+
+## 5. EXISTING TEST COVERAGE MATRIX
+
+### Tests that PASS (regression baseline):
+- build_creates_v2_lock_from_dyyl (tests/pkg_cmd.rs:636) — builds lock from text
+- make_exports_dyyl_source (tests/pkg_cmd.rs:658) — exports dyyl source
+- build_default_output_is_input_mcm (tests/pkg_cmd.rs:674) — default output path
+
+### Tests that FAIL (RED, as expected):
+- dyyl_build_produces_host_protocol_output (tests/game_install.rs:1089)
+  Fails because: source_line is None on all steps
+  Expected after fix: source_line populated from host protocol
+
+### Missing test coverage:
+- No test for NDJSON event shape validation
+- No test for host protocol response handling
+- No test for timeout behavior
+- No test for error sentinel handling
+- No test for parallel_safe commands
+- No test for dyyl process spawning/failure
+- No test for mcm do with .dyyl files (currently rejected)
+- No test for malformed NDJSON handling
+
+
+## 6. RECOMMENDED IMPLEMENTATION APPROACH
+
+Phase 1: Protocol Types + Fake Host (RED→GREEN)
+  1. Define NDJSON protocol types (McmCommand, McmResponse, McmError)
+  2. Add source_line parameter to new_step()
+  3. Write RED tests for protocol shapes
+  4. Implement minimal NDJSON reader/writer
+
+Phase 2: Host Protocol State Machine
+  5. Implement command-response correlation by id
+  6. Add 60s timeout mechanism
+  7. Add error sentinel handling
+  8. Write RED tests for timeout and error cases
+
+Phase 3: Process Spawning
+  9. Implement dyyl binary discovery
+  10. Implement process spawning with --host-json
+  11. Wire up stdin/stdout NDJSON streams
+  12. Write RED tests for process lifecycle
+
+Phase 4: Integration
+  13. Replace parse_dyyl_to_lock with host protocol
+  14. Update build_dyyl to spawn dyyl
+  15. Enable mcm do for .dyyl files
+  16. Verify all tests GREEN
+
+Phase 5: Cleanup
+  17. Remove dead parse_dyyl_args/parse_dyyl_value
+  18. Update classify_mcm_op if needed
+  19. Add missing test coverage
+  20. Final evidence collection

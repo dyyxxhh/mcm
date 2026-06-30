@@ -1,0 +1,115 @@
+==========================================================================
+Task 2: RED tests for false completion claims
+Date: 2026-06-29T06:59:35+08:00
+==========================================================================
+
+--- Test 1: canonical_loader_version_layout ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.58s
+     Running tests/game_install.rs (target/debug/deps/game_install-44c2c6ee901ece7b)
+
+running 1 test
+
+thread 'canonical_loader_version_layout' (1103274) panicked at tests/game_install.rs:948:5:
+canonical version dir should exist at /tmp/.tmp04mVSp/mcm/dev/versions/1.21.1-neoforge-21.1.172 (HMCL-compatible flat layout)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test canonical_loader_version_layout ... FAILED
+
+failures:
+
+failures:
+    canonical_loader_version_layout
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `--test game_install`
+
+--- Test 2: game_install_materializes_libraries_assets_and_natives ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running tests/game_install.rs (target/debug/deps/game_install-44c2c6ee901ece7b)
+
+running 1 test
+
+thread 'game_install_materializes_libraries_assets_and_natives' (1103290) panicked at tests/game_install.rs:1000:5:
+libraries/ directory must exist under game root at /tmp/.tmpMXvShP/mcm/vanilla/libraries
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test game_install_materializes_libraries_assets_and_natives ... FAILED
+
+failures:
+
+failures:
+    game_install_materializes_libraries_assets_and_natives
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `--test game_install`
+
+--- Test 3: production_install_does_not_use_mock_manifests ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running tests/game_install.rs (target/debug/deps/game_install-44c2c6ee901ece7b)
+
+running 1 test
+
+thread 'production_install_does_not_use_mock_manifests' (1103306) panicked at tests/game_install.rs:1061:5:
+install with --provider modrinth should NOT succeed without real Mojang API (current code silently uses mock data — this is the compliance gap we're proving)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test production_install_does_not_use_mock_manifests ... FAILED
+
+failures:
+
+failures:
+    production_install_does_not_use_mock_manifests
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `--test game_install`
+
+--- Test 4: game_config_supports_setting_fields ---
+```
+```
+command=`"/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm/target/debug/mcm" "--config-dir" "/tmp/.tmpvlVhnM/config" "--state-dir" "/tmp/.tmpvlVhnM/state" "--provider" "mock" "game" "config" "dev" "set" "java_path" "/usr/bin/java21"`
+code=2
+stdout=""
+stderr=```
+error: unexpected argument \'set\' found
+
+Usage: mcm game config [OPTIONS] <NAME>
+
+For more information, try \'--help\'.
+```
+
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test game_config_supports_setting_fields ... FAILED
+
+failures:
+
+failures:
+    game_config_supports_setting_fields
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test game_config`
+
+--- Test 5: dyyl_build_produces_host_protocol_output ---
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running tests/game_install.rs (target/debug/deps/game_install-44c2c6ee901ece7b)
+
+running 1 test
+
+thread 'dyyl_build_produces_host_protocol_output' (1103378) panicked at tests/game_install.rs:1125:9:
+step 0 must have `source_line` metadata from dyyl host protocol, got: {"args":{"0":"dev","1":"1.21.1"},"op":"game.choose","permission":"install"}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test dyyl_build_produces_host_protocol_output ... FAILED
+
+failures:
+
+failures:
+    dyyl_build_produces_host_protocol_output
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--test game_install`
+
+==========================================================================
+ALL 5 RED TESTS FAILED AS EXPECTED — compliance gaps confirmed.
+==========================================================================

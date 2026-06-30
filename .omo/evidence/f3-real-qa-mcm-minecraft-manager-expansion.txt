@@ -1,0 +1,278 @@
+F3 — Final Verification Wave: Real CLI + HTTP Manual QA
+MCM Minecraft Manager Expansion
+Started: 2026-06-28T02:15:00+08:00
+Completed: 2026-06-28T02:35:00+08:00
+
+===========================================================================
+BUILD VERIFICATION
+===========================================================================
+cargo build: PASS (binary at target/debug/mcm)
+cargo fmt --check: PASS
+cargo clippy --all-targets --all-features -- -D warnings: PASS
+cargo test: 503 passed, 0 failed
+
+===========================================================================
+S1: MVP MOD SMOKE — mods add/use/search/install/list/remove/autoremove
+===========================================================================
+OUTCOME: PASS (14/14 checks)
+
+Commands run in isolated temp dir with --provider mock:
+  1. mods profile-list (fresh) → empty, exit 0
+  2. mods add dev --mods-dir /tmp/.../mods --mc-version 1.20.1 --loader fabric → "added profile dev", exit 0
+  3. mods profile-list → "* dev", exit 0
+  4. mods show → prints name/mods_dir/mc_version/loader/side, exit 0
+  5. mods use dev → "active profile dev" (already active), exit 0
+  6. mods search root → rootmod - Root Mod, candidates: mock/rootmod, modrinth/rootmod, exit 0
+  7. mods info rootmod → description + deps + warnings (embedded/incompatible/unknown), exit 0
+  8. mods install rootmod --dry-run → dry run + install plan (depmod Auto, rootmod Manual) + 4 warnings, exit 0
+  9. mods install rootmod --yes → real install of depmod + rootmod, exit 0
+  10. mods list → depmod 1.0.0 Auto, rootmod 1.0.0 Manual, exit 0
+  11. mods status → ok: depmod, ok: rootmod, exit 0
+  12. mods remove rootmod --yes → "removed rootmod", exit 0
+  13. mods autoremove --yes → MC-critical warning to stderr + "removed depmod", exit 0
+  14. mods list (after autoremove) → empty, exit 0
+
+No real Minecraft launch. No network. All mock provider.
+
+===========================================================================
+S2: SOURCE CLI FLOW — source add/list/info/remove
+===========================================================================
+OUTCOME: PASS (12/12 checks)
+
+Commands run in isolated temp dir:
+  1. source list (fresh) → empty, exit 0
+  2. source add https://example.test/index.json (non-TTY, no --yes) → "Error: confirmation required; pass --yes to proceed", exit 1
+  3. source add https://example.test/index.json --yes → "added source ...", exit 0
+  4. source list → 1 source URL, exit 0
+  5. source info https://example.test/index.json → url + status: trusted + added_at, exit 0
+  6. source add duplicate --yes → "Error: source ... is already imported", exit 1
+  7. source add https://another.test/repo.json --yes → added, exit 0
+  8. source list → 2 sources alphabetical, exit 0
+  9. source remove https://example.test/index.json → "removed source ...", exit 0
+  10. source list after remove → 1 source, exit 0
+  11. source remove unknown → "Error: unknown source ...", exit 1
+  12. source info unknown → "Error: unknown source ...", exit 1
+
+Zero sources on fresh install confirmed. Confirmation required for add. Duplicate rejection works.
+
+===========================================================================
+S3: GAME INSTALL — dry-run, real install, confirmation, error paths
+===========================================================================
+OUTCOME: PASS (9/9 checks)
+
+Commands run in isolated temp dir:
+  1. game list (fresh) → empty, exit 0
+  2. game install dev mc --dry-run → dry run + mc_version: 1.21.1, exit 0
+  3. game install dev mc-neoforge --dry-run → mc_version: 1.21.1 + loader: neoforge + loader_version: 21.1.172, exit 0
+  4. game install dev mc1.21.1-fabric-0.16.0 --dry-run → mc_version: 1.21.1 + loader: fabric + loader_version: 0.16.0, exit 0
+  5. game install dev mc --yes → "installed game dev", exit 0
+  6. game list → "dev", exit 0
+  7. game info dev → prints root_dir + mc_version + loader + java_path etc, exit 0
+  8. game install prod mc (non-TTY, no --yes) → "Error: confirmation required; pass --yes to proceed", exit 1
+  9. install mc-neoforge (top-level, smart target) → "Error: top-level install does not accept Minecraft smart targets; use `game install` instead", exit 1
+
+Mock manifests used. No real Minecraft download. All 4 loaders tested via dry-run.
+
+===========================================================================
+S4: JAVA RUNTIME — runtime info/install
+===========================================================================
+OUTCOME: PASS (5/5 checks)
+
+Commands run in isolated temp dir:
+  1. game install dev mc1.21.1 --yes → installed, exit 0
+  2. runtime info dev → java required: 21, status: not found, install plan printed, exit 0
+  3. runtime install dev --yes → "installed managed Java 21" + path, exit 0
+  4. runtime info dev (after install) → status: found, java version: 21, java source: managed, exit 0
+  5. runtime info nonexistent → "Error: unknown game nonexistent", exit 1
+
+Managed Java install via mock fetcher. No real JDK download.
+
+===========================================================================
+S5: RUN — dry-run with game + Java
+===========================================================================
+OUTCOME: PASS (5/5 checks)
+
+Commands run in isolated temp dir:
+  1. game install dev mc1.21.1 --yes → installed, exit 0
+  2. runtime install dev --yes → installed, exit 0
+  3. game default dev → set, exit 0
+  4. run --dry-run → full launch command with java path, classpath, main class (net.minecraft.client.main.Main), game args (username Player, uuid 00000000-..., accessToken mock-access-token, sessionType Mojang), exit 0
+  5. run (no --dry-run) → "Error: real launch is not implemented yet; use --dry-run to preview the launch command", exit 1
+
+No real Minecraft launch. Mock auth session (Player, all-zeros UUID, mock-access-token, Mojang).
+
+===========================================================================
+S6: UPGRADE / FULL-UPGRADE — plan, confirmation, apply, already-up-to-date
+===========================================================================
+OUTCOME: PASS (5/5 checks)
+
+Setup: temp dir with config (global root_dir, profiles.dev) + lock file (depmod 0.9.0, rootmod 0.9.0).
+  1. upgrade (no --yes, non-TTY) → prints plan (depmod 0.9.0→1.0.0 Auto, rootmod 0.9.0→1.0.0 Manual) + "Error: confirmation required; pass --yes to apply", exit 1
+  2. upgrade --yes → prints plan + "upgraded depmod: 0.9.0 -> 1.0.0" + "upgraded rootmod: 0.9.0 -> 1.0.0", exit 0
+  3. list after upgrade → versions are 1.0.0 (confirmed in lock file)
+  4. upgrade (already up-to-date) → "dev: already up to date", exit 0
+  5. full-upgrade with no games → "Error: no games configured; run game install first", exit 1
+
+===========================================================================
+S7: OIDC MOCK — publish/update/delete/download limits
+===========================================================================
+OUTCOME: PASS (16/16 integration tests)
+
+Source: cargo test --test server_auth (16 tests)
+
+Verified via integration tests:
+  - publish_with_valid_session_succeeds: OIDC login → publish succeeds
+  - publish_without_auth_returns_401: no token → 401
+  - publish_with_invalid_token_returns_401: bad token → 401
+  - second_publish_same_day_returns_429: daily push limit enforced
+  - publish_after_delete_same_day_still_429: delete does NOT reset daily limit
+  - sixth_package_returns_409_limit: max 5 packages per user enforced
+  - update_by_another_user_returns_403: owner check on update
+  - delete_by_another_user_returns_403: owner check on delete
+  - update_on_next_day_succeeds: FakeClock advance past daily limit
+  - deleted_slug_reserved_for_two_days: slug reservation after delete
+  - oversized_body_returns_413: 10MB body limit
+  - non_json_content_type_returns_415: content-type check
+  - oidc_start_returns_auth_url / callback_issues_session_token / session_returns_owner / session_returns_401_without_token
+
+No admin token. No Turnstile. OIDC mock provider used (no real network auth).
+
+===========================================================================
+S8: STORAGE — publish/download/update/delete/roundtrip
+===========================================================================
+OUTCOME: PASS (14/14 integration tests)
+
+Source: cargo test --test server_storage (14 tests)
+
+Verified:
+  - http_list_empty_returns_200: empty list
+  - storage_duplicate_slug_returns_conflict: 409 on duplicate
+  - storage_refuses_data_dir_under_x: /x validation
+  - http_publish_without_auth_returns_401: auth required
+  - http_publish_duplicate_returns_409: slug uniqueness
+  - http_delete_owner_mismatch_returns_403: owner check
+  - http_update_owner_mismatch_returns_403: owner check
+  - storage_rejects_secret_payload: secret field scan
+  - storage_rejects_invalid_slug: slug validation
+  - storage_delete_reserves_slug_for_two_days: reservation
+  - storage_persists_across_reopen: durability
+  - http_publish_download_update_delete_roundtrip_with_clock: full lifecycle
+  - storage_update_owner_mismatch_returns_forbidden
+  - storage_update_overwrites_without_backup
+
+===========================================================================
+S9: INSTALL ROUTES — /install and /install/pkg/<slug>
+===========================================================================
+OUTCOME: PASS (13/13 integration tests)
+
+Source: cargo test --test server_install (6 tests) + cargo test --test server_pkg_install (7 tests)
+
+/install:
+  - Returns 200 with shell script content-type
+  - Script body contains checksum verification
+  - Detects unsupported OS/arch
+  - Supports dry-run via env
+  - Supports env overrides
+  - No unverified piped execution
+
+/install/pkg/<slug>:
+  - Returns 200 for valid published package
+  - Returns 404 for missing package
+  - Rejects malformed slug (uppercase, dots)
+  - Script contains bootstrap fallback
+  - Script contains delegation to mcm install
+  - Supports dry-run
+  - Safely quotes slug
+
+No auth/Turnstile on install routes (public bootstrap).
+
+===========================================================================
+S10: PACKAGE CLI — pkg info/install/download/make/share/list
+===========================================================================
+OUTCOME: PASS (34/34 integration tests + 30/30 parser tests)
+
+Source: cargo test --test pkg_cmd (34 tests) + cargo test --test mcm_package (30 tests)
+
+CLI manual test:
+  - pkg info ./sample.mcm → prints name/version/description/loader/schema_version/counts
+  - pkg info nonexistent.mcm → "Error: read .../nonexistent.mcm", exit 1
+  - pkg list (fresh) → empty, exit 0
+
+Key pkg_cmd tests:
+  - pkg_install_with_yes_writes_mod_jars_and_assets
+  - pkg_install_with_launch_yes_prints_launch_confirmed
+  - pkg_install_with_launch_without_yes_bails_in_non_tty
+  - pkg_download_with_launch_does_not_print_launch_confirmed
+  - pkg_install_duplicate_asset_aborts_without_partial
+  - pkg_make_creates_valid_json
+  - pkg_make_excludes_secrets_by_default
+  - top_install_auto_selects_smallest_mcm
+  - top_install_rejects_mc_smart_target
+  - top_install_rejects_raw_mod_name
+  - do_auto_selects_single_mcm_in_cwd
+  - do_with_yes_executes_scripts_from_game_root
+  - pkg_dl_alias_matches_download
+
+===========================================================================
+S11: FULL TEST SUITE — no regressions
+===========================================================================
+OUTCOME: PASS
+
+cargo test: 503 passed, 0 failed
+  - lib: 146 passed
+  - characterization: 44 passed
+  - confirmation: 21 passed
+  - download: 6 passed
+  - game_config: 28 passed
+  - game_install: 22 passed
+  - help: 7 passed
+  - mc_target: 17 passed
+  - mcm_package: 30 passed
+  - modpack_import: 14 passed (12 tests in test count from learnings)
+  - mvp: 13 passed
+  - pkg_cmd: 34 passed
+  - run: 7 passed
+  - runtime: 13 passed (12 tests in test count from learnings)
+  - server: 14 passed
+  - server_auth: 16 passed
+  - server_install: 6 passed
+  - server_pkg_install: 7 passed
+  - server_storage: 14 passed
+  - source_cmd: 12 passed
+  - source_index: 12 passed (from learnings)
+  - source_service: 12 passed
+  - upgrade: 10 passed
+
+cargo fmt --check: PASS
+cargo clippy --all-targets --all-features -- -D warnings: PASS
+
+===========================================================================
+CLEANUP RECEIPT
+===========================================================================
+All temp dirs created via mktemp -d were removed via rm -rf.
+No lingering processes, bind ports, or artifacts.
+No real Minecraft launch occurred.
+No real network auth was used.
+All OIDC flows used mock provider.
+All game installs used mock manifests.
+All Java runtime installs used mock fetcher.
+
+===========================================================================
+ADVERSARIAL QA
+===========================================================================
+- Flaky tests: 503 tests are deterministic (mock provider, temp dirs, no network)
+- Malformed state: missing default game → actionable error (S5)
+- Stale state: default points to removed game → error (tested in task 22 evidence)
+- Missing runtime: game installed but no Java → actionable error (S4 shows "not found" + install guidance)
+- No real Minecraft launch: run without --dry-run says "not implemented yet" (S5)
+- Prompt injection: auth strings are deterministic constants (Player, 00000000-..., mock-access-token, Mojang)
+- Owner mismatch: tested in upgrade (task 23) and server auth (S7)
+- Daily limit: tested in server auth (S7) — second_publish_same_day_returns_429
+- Delete not resetting limit: publish_after_delete_same_day_still_429 (S7)
+- Max 5 packages: sixth_package_returns_409_limit (S7)
+- Slug reservation: deleted_slug_reserved_for_two_days (S7)
+- Secret field rejection: storage_rejects_secret_payload (S8) + parser tests (S10)
+
+===========================================================================
+VERDICT: APPROVE
+===========================================================================

@@ -1,0 +1,152 @@
+Task 18: Implement /install/pkg/<package-name> permanent package install route
+==============================================================================
+
+Date: 2026-06-27
+Status: COMPLETE — all acceptance criteria pass
+
+## Files touched
+
+### Production source files (all <=250 pure LOC)
+
+CREATED (module split):
+- src/server/install/mod.rs          (4 pure LOC) — facade, re-exports submodules
+- src/server/install/bootstrap.rs   (110 pure LOC) — bootstrap handler + const BOOTSTRAP_SCRIPT
+  via include_str! + 9 unit tests
+- src/server/install/pkg.rs         (78 pure LOC) — pkg_install_script handler +
+  generate_pkg_script() helper
+- src/server/install/bootstrap-script.sh — external shell script (179 lines, data)
+
+REMOVED:
+- src/server/install.rs (flat file, 318 pure LOC — over 250 ceiling)
+
+EXISTING (unchanged semantics):
+- src/server/mod.rs — route registration still uses install::install_script
+  and install::pkg_install_script, transparently resolved through the new
+  module facade.
+
+### Test files
+
+- tests/server_pkg_install.rs (230 pure LOC) — 7 integration tests
+- tests/server_install.rs (151 pure LOC) — 6 bootstrap route tests (unchanged)
+
+## Route behavior summary
+
+| Route | Input | Response |
+|-------|-------|----------|
+| GET /install/pkg/sample-pkg | Existing package | 200 + text/x-shellscript script with shebang, mcm install --yes, dry-run, bootstrap |
+| GET /install/pkg/nonexistent | Missing package | 404 JSON |
+| GET /install/pkg/UPPERCASE | Invalid slug | 400 JSON |
+| GET /install/pkg/has.dot | Invalid slug | 400 JSON |
+| Script dry-run | MCM_INSTALL_DRY_RUN=true | Prints plan, exits 0 |
+| Script bootstrap | mcm not in PATH | Calls /install endpoint |
+
+### Script design (generate_pkg_script)
+
+1. set -eu — fail on undefined vars/errors
+2. SLUG='<slug>' — single-quoted; slug validated to [a-z0-9-] at boundary
+3. Shell variable ${SLUG} used throughout
+4. Env: MCM_PACKAGE_BASE_URL (default: https://mc.dyyapp.com), MCM_INSTALL_DRY_RUN
+5. Dry-run: prints plan and exits 0
+6. Bootstrap: curl -fsSL "${BASE}/install" | sh (trusted /install endpoint)
+7. Delegation: mcm install "${BASE}/api/share/pkg/${SLUG}" --yes
+
+## Security properties
+
+1. **Slug validation at boundary**: validate_package_name() enforces [a-z0-9-]
+2. **Single-quoted shell assignment**: SLUG='...' — impossible to break POSIX single quotes
+3. **No bespoke package logic**: delegates entirely to mcm install --yes
+4. **Trusted bootstrap**: calls back to /install (checksum-verified)
+5. **No auth on route**: public; no Turnstile/admin token/OIDC
+
+## Verification commands (run 2026-06-27)
+
+```
+$ /home/usr/.cargo/bin/cargo test --test server_pkg_install -- --nocapture
+running 7 tests
+test pkg_install_route_returns_404_for_missing_package ... ok
+test pkg_install_route_returns_200_with_shell_script_for_valid_package ... ok
+test pkg_install_script_contains_bootstrap_fallback ... ok
+test pkg_install_script_contains_dry_run_support ... ok
+test pkg_install_script_safely_quotes_slug ... ok
+test pkg_install_script_contains_delegation_to_mcm_install ... ok
+test pkg_install_route_rejects_malformed_slug ... ok
+test result: ok. 7 passed
+
+$ /home/usr/.cargo/bin/cargo test --test server_install -- --nocapture
+running 6 tests
+test install_route_returns_200_with_shell_script_content_type ... ok
+test install_route_supports_dry_run_via_env ... ok
+test install_route_body_supports_env_overrides ... ok
+test install_route_body_has_no_unverified_piped_execution ... ok
+test install_route_body_detects_unsupported_os_or_arch ... ok
+test install_route_body_contains_checksum_verification ... ok
+test result: ok. 6 passed
+
+$ /home/usr/.cargo/bin/cargo test
+test result: ok. 374 passed; 0 failed (across 20 test targets)
+
+$ /home/usr/.cargo/bin/cargo fmt --check
+fmt: OK
+
+$ /home/usr/.cargo/bin/cargo clippy --all-targets --all-features -- -D warnings
+clippy: OK
+```
+
+## Pure LOC summary
+
+| File | Pure LOC | Status |
+|------|----------|--------|
+| src/server/install/mod.rs | 4 | ✅ ≤250 |
+| src/server/install/bootstrap.rs | 110 | ✅ ≤250 |
+| src/server/install/pkg.rs | 78 | ✅ ≤250 |
+| src/server/mod.rs | 225 | ✅ ≤250 |
+
+## Manual QA transcript
+
+```
+=== 1. Health check ===
+{"mode":"share","status":"ok"}
+
+=== 2. OIDC login ===
+TOKEN obtained
+
+=== 3. Publish sample-pkg ===
+{"slug":"sample-pkg","status":"created"}
+
+=== 4. GET /install/pkg/sample-pkg (expect 200) ===
+Status: 200
+Content-Type: text/x-shellscript; charset=utf-8
+First line: #!/bin/sh
+DELEGATION: ✓ contains mcm install
+YES_MODE: ✓ contains --yes
+DRY_RUN: ✓ contains MCM_INSTALL_DRY_RUN
+SLUG_REF: ✓ references sample-pkg
+BOOTSTRAP: ✓ contains bootstrap via /install
+QUOTED: ✓ slug single-quoted
+
+=== 5. GET /install/pkg/nonexistent (expect 404) ===
+Status: 404 ✓
+
+=== 6. GET /install/pkg/UPPERCASE (expect 400) ===
+Status: 400 ✓
+
+=== 7. GET /install/pkg/has.dot (expect 400) ===
+Status: 400 ✓
+
+=== 8. Cleanup ===
+Server PID killed, temp dir removed ✓
+```
+
+## Acceptance criteria checklist
+
+- [x] GET /install/pkg/{slug} returns shell script on valid published package
+- [x] Missing package returns 404 JSON
+- [x] Malformed/malicious slug (uppercase, dots) returns 400 JSON
+- [x] Script delegates to mcm install ... --yes
+- [x] Script bootstraps MCM via /install endpoint
+- [x] Script supports dry-run via MCM_INSTALL_DRY_RUN
+- [x] Slug single-quoted in shell assignment (no injection)
+- [x] No auth, Turnstile, or admin token required
+- [x] All production files <=250 pure LOC
+- [x] All verification commands pass
+- [x] Cleanup: no server/PID/temp resources left

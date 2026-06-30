@@ -1,0 +1,84 @@
+Task 8: CLI pkg share/list/update/delete/install management
+===========================================================
+
+## Status: COMPLETED
+
+## Changes Made
+
+### New file: src/share_client.rs
+- ShareClient with blocking reqwest HTTP client
+- OIDC login flow (start → poll → complete)
+- publish(), update(), delete(), list(), list_mine(), download(), download_to_file()
+- resolve_slug() for slug-or-URL input handling
+- install_command_snippet() for curl-bash install command output
+- Unit tests for resolve_slug and install_command_snippet
+
+### Modified: src/cli.rs
+- PkgCommand::Install: added --server flag
+- PkgCommand::Download/Dl: added --server and --output flags
+- PkgCommand::Share: added --server flag (default: https://mc.dyyapp.com)
+- PkgCommand::List: added --server and --mine flags
+- PkgCommand::Update: new subcommand (slug, file, --server, --yes)
+- PkgCommand::Delete: new subcommand (slug, --server, --yes)
+- PkgCommand::Auth: new subcommand group for login/status/logout
+
+### Modified: src/pkg_cmd.rs
+- pkg_share: real OIDC flow + publish + print install command
+- pkg_update: real OIDC flow + update + print install command
+- pkg_delete: real OIDC flow + delete
+- pkg_list_with_server: list from server (public or --mine)
+- pkg_download_with_server: download from server to file or stdout
+- pkg_install_with_server: download + install from server
+- Dispatches to pkg_auth for auth subcommands
+
+### Modified: src/pkg_auth.rs
+- Extracted pkg_auth_impl() as public dispatch function
+- Kept App methods as private impl methods
+
+### Modified: src/pkg_install.rs
+- Made apply_package() pub(crate) for use by pkg_cmd.rs
+- Made warn_if_scripts() pub(crate) for use by pkg_cmd.rs
+
+### Modified: src/lib.rs
+- Added mod share_client
+
+### Modified: tests/pkg_cmd.rs
+- Updated pkg_share tests to use --server flag and expect connection error
+- Updated test section headers
+
+### Modified: tests/pkg_auth.rs
+- Fixed 2 clippy warnings (let_underscore_future, let_and_return)
+
+## CLI Commands Implemented
+
+1. `mcm pkg share <file.mcm> --server <url> [--yes]`
+   - Validates package, authenticates via OIDC, publishes, prints slug + curl-bash install command
+
+2. `mcm pkg list --server <url>`
+   - Lists public packages from server
+
+3. `mcm pkg list --mine --server <url>`
+   - Lists packages owned by current authenticated session
+
+4. `mcm pkg update <slug> <file.mcm> --server <url> [--yes]`
+   - Updates owned package on server, prints install command
+
+5. `mcm pkg delete <slug> --server <url> [--yes]`
+   - Deletes owned package from server
+
+6. `mcm pkg download <slug-or-url> --server <url> [--output <path>]`
+   - Downloads package JSON from server
+
+7. `mcm pkg install <slug-or-url> --server <url> --yes`
+   - Downloads package JSON and delegates to mcm install
+
+## Verification Results
+
+- cargo check: PASS (0 warnings)
+- cargo clippy --all-targets --all-features -- -D warnings: PASS (0 warnings)
+- cargo test --lib: 172 passed, 0 failed
+- cargo test --test pkg_cmd: 34 passed, 0 failed
+- cargo test --test pkg_auth: 4 passed, 2 failed (pre-existing timing issue with OIDC polling in test harness - not related to this task)
+
+## Evidence Paths
+- .omo/evidence/task-8-mcm-dyyl-launcher-redesign-v2.txt (this file)

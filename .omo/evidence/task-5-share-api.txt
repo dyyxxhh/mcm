@@ -1,0 +1,54 @@
+Task 5: Share API Completeness
+==============================
+Status: COMPLETE
+
+## Changes Made
+
+### 1. DB Schema Migration (src/server/storage/meta.rs)
+- Added columns: name, description, sha256, size_bytes to packages table
+- Added list_packages_by_owner() query
+- Migration runs on open() with duplicate-column tolerance
+
+### 2. Storage Layer (src/server/storage/mod.rs)
+- Expanded PackageMeta with: name, description, created_at, sha256, size_bytes, install_command
+- Added list_by_owner() method
+- publish() and update() now extract name/description from content and compute sha256/size_bytes
+- install_command computed as: curl -fsSL https://mc.dyyapp.com/install/pkg/{slug} | bash
+
+### 3. Validation (src/server/storage/helpers.rs)
+- validate_payload() now returns ContentMetadata { name, description }
+- Added validate_install_only() - rejects packages with actions, launch, or local fields
+- Added 5 new unit tests for validation
+
+### 4. API Endpoints (src/server/share.rs)
+- GET /api/share/mine - returns owner's packages (requires auth)
+- GET /api/share/pkg/{slug}/install-command - returns install command JSON
+- GET /api/share/list - now returns enhanced metadata
+- is_validation_error() updated to catch "non-install" errors
+
+### 5. Tests (tests/server_storage.rs)
+Added 11 new integration tests:
+- http_mine_returns_only_owner_packages
+- http_mine_without_auth_returns_401
+- http_mine_only_shows_own_packages
+- http_install_command_returns_command
+- http_install_command_nonexistent_returns_404
+- http_list_returns_enhanced_metadata
+- http_publish_rejects_actions
+- http_publish_rejects_launch
+- http_publish_rejects_local
+- storage_list_by_owner_filters_correctly
+- storage_metadata_includes_all_fields
+
+## Test Results
+- cargo test --lib: 8/8 passed (helpers unit tests)
+- cargo test --test server_storage: 25/25 passed
+- cargo test --test server: 13/13 passed (no regressions)
+- cargo clippy --all-targets --all-features: clean (pre-existing warnings from Task 4 excluded)
+
+## Files Modified
+- src/server/storage/meta.rs (schema + queries)
+- src/server/storage/helpers.rs (validation)
+- src/server/storage/mod.rs (PackageMeta + storage methods)
+- src/server/share.rs (handlers + routes)
+- tests/server_storage.rs (11 new tests)

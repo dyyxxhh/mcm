@@ -1,0 +1,68 @@
+Task 9: game config write support — Evidence
+=============================================
+
+## Requirement
+`game config <name>` must support setting version-scoped fields (java_path, jvm_args, extra_args),
+not just showing them. The RED test `game_config_supports_setting_fields` must pass.
+
+## Changes Made
+- src/cli.rs: Added `GameConfigSubcommand` enum (Show/Set), changed `Config` variant to include
+  optional subcommand. Added `#[arg(allow_hyphen_values = true)]` on the value field so values
+  starting with `-` (like `-Xmx4G`, `--fullscreen`) are accepted.
+- src/game_cmd.rs: Added `game_config_set()` method, updated dispatch in `game()` to route
+  Config commands to show or set based on subcommand.
+- src/lib.rs: Re-exported `GameConfigSubcommand`.
+
+## Test Results
+
+### RED → GREEN (target test)
+$ cargo test --test game_config game_config_supports_setting_fields -- --nocapture
+test game_config_supports_setting_fields ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out
+
+### All game_config tests (29/29 pass)
+$ cargo test --test game_config
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+### All mvp tests (13/13 pass)
+$ cargo test --test mvp
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+### Pre-existing failure (NOT caused by this change)
+characterization::cloud_info_prints_selected_artifact_and_all_dependency_kinds —
+warning capitalization format mismatch ("warning:" vs "Warning:"), pre-existing.
+
+## Manual QA
+
+### Set java_path
+$ mcm game config dev set java_path /usr/bin/java21
+set java_path = /usr/bin/java21
+
+### Set jvm_args (value starts with -)
+$ mcm game config dev set jvm_args "-Xmx4G"
+set jvm_args = -Xmx4G
+
+### Set extra_args (value starts with --)
+$ mcm game config dev set extra_args "--fullscreen"
+set extra_args = --fullscreen
+
+### Show after all sets
+$ mcm game config dev
+game: dev
+java_path: /usr/bin/java21
+jvm_args: -Xmx4G
+extra_args: --fullscreen
+env: (none)
+
+### Config.toml persistence verified
+[games.dev.version_config]
+java_path = "/usr/bin/java21"
+jvm_args = "-Xmx4G"
+extra_args = "--fullscreen"
+
+## CLI Syntax
+- mcm game config <name>          → show (default, backward compatible)
+- mcm game config <name> show     → show (explicit)
+- mcm game config <name> set <key> <value> → write field
+  - key: java_path | jvm_args | extra_args
+  - value accepts any string including those starting with - or --

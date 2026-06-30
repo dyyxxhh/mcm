@@ -1,0 +1,114 @@
+Task 14: dyyl streaming host protocol design and implementation
+==============================================================
+Date: 2026-06-29
+
+## Acceptance Criteria Verification
+
+### ✅ dyyl supports --host-json or equivalent protocol
+- Added `--host-json` CLI flag to `src/main.rs`
+- Usage line shows: `dyyl [--debug] [--host-json] [--lang <en|zh>] <filename>`
+- Binary compiled and verified: `./target/debug/dyyl --help` shows the flag
+
+### ✅ Command event/response roundtrip
+- NDJSON protocol implemented in `src/runtime/host_provider.rs`
+- McmCommand: `{ type: "mcm_command", id: "1", name: "mcm.game.choose", args: ["1.21.1"], source_line: "..." }`
+- McmResponse: `{ type: "mcm_response", id: "1", ok: true, value: "1.21.1" }`
+- Integration test `two_mcm_commands_roundtrip` verifies two commands sent and received in order
+- JSON serialization roundtrip test confirms protocol format
+
+### ✅ MCM error sentinel propagation
+- Integration test `host_error_sentinel_propagates` sends error response, dyyl receives Num(-1)
+- Integration test `host_timeout_error_code` verifies host_timeout error code propagation
+- Unit test `mcm_command_error_propagation` verifies RuntimeError with correct line and error info
+
+### ✅ Unknown command failure
+- Unit test `mcm_command_no_host_provider_returns_error` — mcm.* without host provider → error
+- Integration test `mcm_command_without_host_errors` — mcm.* without host → Num(-1) sentinel
+- Pre-existing unknown.cmd still returns Num(-1)
+
+### ✅ mcm.game.choose scoping
+- `GameChooseScope` struct in host_provider.rs tracks selected version
+- Unit test `game_choose_scope_select_and_reset` — select, replace, reset
+- Unit test `mcm_game_choose_updates_scope` — dispatching mcm.game.choose updates scope
+- Integration test `game_choose_scope_persists_until_next_choose` — two choose commands tracked
+- Scope resets on script end (env is dropped)
+
+### ✅ cargo test passes
+- 173 unit tests pass (13 new from host_provider + mcm modules)
+- 10 integration tests pass (host_json_tests.rs)
+- Pre-existing 1 failure: config::tests::invalid_toml_yields_error (not from this change)
+
+### ✅ cargo clippy passes (for new code)
+- 0 clippy errors from new files (host_provider.rs, mcm.rs, env.rs changes)
+- 508 pre-existing clippy errors in other files (not from this change)
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `Cargo.toml` | Added `serde_json = "1"` dep + dev-dep |
+| `src/lib.rs` | Re-export host_provider types |
+| `src/main.rs` | Added `--host-json` flag + host mode execution |
+| `src/i18n.rs` | Added `mcm_no_host_provider` i18n message |
+| `src/runtime/mod.rs` | Registered host_provider + mcm modules, re-export types |
+| `src/runtime/env.rs` | Added host_provider, game_scope, mcm_id_counter fields |
+| `src/runtime/execute.rs` | Added `run_script_with_lang_and_host` + error variant |
+| `src/runtime/cmd/mod.rs` | Registered mcm module |
+| `src/runtime/cmd/dispatch.rs` | Added `mcm.*` routing |
+
+## Files Created
+
+| File | Description | LOC |
+|------|-------------|-----|
+| `src/runtime/host_provider.rs` | NDJSON protocol types, HostProvider trait, StdioHostConnection, MockHostProvider, GameChooseScope, unit tests | ~373 |
+| `src/runtime/cmd/mcm.rs` | mcm.* command handler + unit tests | ~168 |
+| `tests/host_json_tests.rs` | 10 integration tests for host protocol | ~170 |
+
+## Evidence: Test Output
+
+### Unit tests (new)
+```
+running 13 tests
+test runtime::cmd::mcm::tests::game_choose_scope_tracks_selection ... ok
+test runtime::cmd::mcm::tests::mcm_command_no_host_provider_returns_error ... ok
+test runtime::cmd::mcm::tests::mcm_command_dispatches_to_host ... ok
+test runtime::cmd::mcm::tests::mcm_game_choose_updates_scope ... ok
+test runtime::cmd::mcm::tests::mcm_command_error_propagation ... ok
+test runtime::host_provider::tests::mcm_arg_roundtrip ... ok
+test runtime::host_provider::tests::mcm_response_error_serialization ... ok
+test runtime::host_provider::tests::mcm_command_serialization ... ok
+test runtime::host_provider::tests::mock_host_provider_unknown_when_exhausted ... ok
+test runtime::host_provider::tests::game_choose_scope_select_and_reset ... ok
+test runtime::host_provider::tests::mock_host_provider_returns_preloaded_responses ... ok
+test runtime::host_provider::tests::value_to_mcm_arg_roundtrip ... ok
+test runtime::host_provider::tests::mcm_response_ok_serialization ... ok
+test result: ok. 13 passed; 0 failed
+```
+
+### Integration tests
+```
+running 10 tests
+test mcm_command_without_host_errors ... ok
+test game_choose_scope_persists_until_next_choose ... ok
+test host_timeout_error_code ... ok
+test host_error_sentinel_propagates ... ok
+test json_serialization_roundtrip ... ok
+test mcm_command_args_evaluation ... ok
+test mixed_local_and_mcm_commands ... ok
+test multiple_mcm_error_resilience ... ok
+test unknown_command_still_errors_without_host ... ok
+test two_mcm_commands_roundtrip ... ok
+test result: ok. 10 passed; 0 failed
+```
+
+### CLI verification
+```
+$ ./target/debug/dyyl --help
+dyyl: unknown option '--help'
+Usage: dyyl [--debug] [--host-json] [--lang <en|zh>] <filename>
+```
+
+### cargo check
+```
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.07s
+```

@@ -1,0 +1,59 @@
+# Task 11: HMCL Parity Correction — Documentation Update Evidence
+
+**Date:** 2026-06-29
+**Task:** Update README and docs to match actual corrected behavior and compliance matrix
+
+## Changes Made
+
+### 1. Added "Current status" section (lines 20-51)
+
+New section after Overview that honestly discloses implementation state:
+
+- **Implemented:** Game install with canonical HMCL layout, version resolution, offline auth, launch pipeline, `.mcm` v2 schema, mod provider integration, package sharing, source management, curl-bash routes, PM2 deployment, confirmation policy, dyyl build
+- **Partial/In progress:** Game config write (read-only), dyyl host protocol (simplified parser), source weighting (unverified aggregation), upgrade/full-upgrade (unverified semantics)
+- **Not implemented:** Real Mojang API fetch, library/asset download, native extraction with real artifacts, online Microsoft/Mojang auth (mock only), CurseForge modpack export
+
+Explicit statement: "MCM aims to be a strong Linux x86_64 CLI alternative to HMCL and PCL for specific workflows. It does not claim full parity with either launcher."
+
+### 2. Updated game install section (lines 195-207)
+
+Added "Canonical install layout" subsection documenting:
+- `versions/<resolved-id>/<resolved-id>.json` + jar for vanilla
+- Flat version directories for loader installs (e.g., `1.21.1-neoforge-21.1.172/`)
+- Directory tree example showing both vanilla and loader layout
+
+### 3. Qualified HMCL replacement claims
+
+- Line 3: Changed "growing into a full Minecraft manager" to "growing toward broader Minecraft management" with link to Current status section
+- Line 51: Added explicit "does not claim full parity" statement
+- Line 252: Changed "Microsoft and Mojang authentication is supported" to "Authentication supports offline mode and a mock online provider with session tests. Real Microsoft/Mojang authentication is not yet implemented."
+
+### 4. No unqualified "full HMCL replacement" claims remain
+
+Grep verification: All HMCL references are now properly qualified:
+- "canonical HMCL layout" (describes format, not parity claim)
+- "does not claim full parity with either launcher" (explicit qualification)
+- "conceptual UX and product references only" (license section, unchanged)
+
+## Compliance Matrix Cross-Reference
+
+| Gap ID | Severity | README Status |
+|--------|----------|---------------|
+| GAP-1 (mock manifests) | HIGH | Listed under "Not implemented" |
+| GAP-2 (game config read-only) | MEDIUM | Listed under "Partial / In progress" |
+| GAP-3 (dyyl simplified parser) | MEDIUM | Listed under "Partial / In progress" |
+| GAP-4 (source weighting unverified) | LOW | Listed under "Partial / In progress" |
+| GAP-5 (upgrade semantics unverified) | LOW | Listed under "Partial / In progress" |
+| GAP-6 (cargo not in PATH) | LOW | Not applicable to docs |
+
+## Files Modified
+
+- `README.md` — 4 edits (Current status section, game install layout, overview qualification, run section qualification)
+
+## Verification
+
+```bash
+grep -n "Current status\|does not claim full parity\|canonical HMCL layout\|Not implemented" README.md
+```
+
+Expected: All four patterns found with honest, qualified statements.

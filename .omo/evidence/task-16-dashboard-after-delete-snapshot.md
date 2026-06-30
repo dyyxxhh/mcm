@@ -1,0 +1,10 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Packages" [level=1] [ref=e6]
+      - generic [ref=e7]
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: No packages yet. Publish your first package.
+      - link "Publish a package" [ref=e13] [cursor=pointer]:
+        - /url: /publish
+  - contentinfo [ref=e14]: MCM Share · Mock OIDC mode

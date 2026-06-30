@@ -1,0 +1,165 @@
+Task 7 — Centralize trusted-source confirmation policy
+=======================================================
+Date: 2026-06-26
+Status: COMPLETE
+
+## Deliverables
+
+### NEW src/confirmation.rs (170 pure non-test LOC)
+- ConfirmationPolicy enum: Harmless / Bypassable / NonBypassable
+- OperationKind enum: 14 variants (Install, Download, Delete, VersionRemoval,
+  PackageInstall, RuntimeInstall, SourceAction, ScriptExecution,
+  RootSystemChange, WorldOverwrite, WorldDelete, Autoremove, LaunchOnInstall,
+  GameRemove)
+- classify(op) -> ConfirmationPolicy
+- is_mc_critical(op) -> bool (Autoremove, WorldOverwrite, WorldDelete)
+- emit_mc_critical_warning(op) -> prints to stderr
+- require_confirmation(op, yes) -> Result<()> (centralized gate)
+- confirm_typed(prompt) -> Result<bool> (requires "yes")
+- root_escalation_helper(action, interactive) -> Result<()> (sudo/pkexec)
+- prompt_yes_no(prompt) -> Result<bool> (pub(crate), shared y/N reader)
+- AUTOREMOVE_WARNING constant with required phrases
+
+### MODIFIED src/safety.rs
+- confirm_install() now delegates to confirmation::prompt_yes_no via
+  classify(OperationKind::Install). Preserves exact "Proceed with install?
+  [y/N]" prompt text for backward compat.
+
+### MODIFIED src/lifecycle.rs
+- autoremove() emits AUTOREMOVE_WARNING to stderr after --yes gate passes,
+  before destructive removal. Preserves exact stdout/stderr for
+  characterization tests.
+
+### MODIFIED src/lib.rs
+- Added mod confirmation + docstring entry.
+
+### UNCHANGED src/game_cmd.rs
+- game_remove() already uses compatible pattern: if !yes { bail!("confirmation
+  required; pass --yes to remove game {name}") }. No change needed.
+
+### NEW tests/confirmation.rs (21 integration tests)
+- Bypassable with --yes (3 tests)
+- Bypassable without --yes in non-TTY (3 tests)
+- Autoremove MC-critical warning on stderr (3 tests)
+- Read-only actions never prompt (8 tests)
+- Install interactive prompt backward compat (3 tests)
+- game remove with --yes (1 test)
+
+### NEW unit tests in src/confirmation.rs (9 tests)
+- classify classification
+- is_mc_critical flags
+- AUTOREMOVE_WARNING required phrases
+- require_confirmation bypassable/non-bypassable paths
+- root_escalation_helper non-interactive bail
+
+## Verification
+
+### cargo test (all 192 tests pass)
+```
+running 32 tests
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 44 tests  (characterization — unchanged, all green)
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 21 tests  (confirmation — new)
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 28 tests  (game_config — unchanged, all green)
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 7 tests   (help — unchanged, all green)
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 17 tests  (mc_target — unchanged, all green)
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 30 tests  (mcm_package — unchanged, all green)
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+running 13 tests  (mvp — unchanged, all green)
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+Total: 192 passed, 0 failed (162 original + 9 unit + 21 integration)
+
+### cargo fmt --check
+Clean (no diffs).
+
+### cargo clippy --all-targets --all-features -- -D warnings
+Clean (no warnings).
+
+## Real-surface QA
+
+### mods install rootmod --yes (bypassable, proceeds)
+```
+$ mcm --provider mock mods install rootmod --yes
+selected rootmod from search result rootmod
+install depmod 1.0.0 Auto
+install rootmod 1.0.0 Manual
+warning: optional dependency optionalmod not installed
+warning: embedded dependency embeddedlib not installed
+warning: incompatible dependency badmod not installed
+warning: unknown dependency mysterymod not installed
+EXIT: 0
+```
+
+### mods list (read-only, no prompt)
+```
+$ mcm --provider mock mods list
+depmod 1.0.0 Auto mock/depmod-file
+rootmod 1.0.0 Manual mock/rootmod-file
+EXIT: 0
+```
+
+### mods autoremove (non-interactive, bails)
+```
+$ mcm --provider mock mods autoremove
+Error: confirmation required; pass --yes to apply
+EXIT: 1
+```
+
+### mods autoremove --yes (MC-critical warning on stderr, proceeds)
+```
+$ mcm --provider mock mods autoremove --yes
+WARNING: autoremove is MC-critical. Removing apparently unused mods/resources may break worlds/saves or modded structures.
+removed depmod
+EXIT: 0
+```
+(Warning on stderr, "removed depmod" on stdout — preserves characterization test assertions)
+
+### mods install rootmod (non-interactive, stdin=/dev/null)
+```
+$ mcm --provider mock mods install rootmod < /dev/null
+selected rootmod from search result rootmod
+install depmod 1.0.0 Auto
+install rootmod 1.0.0 Manual
+warning: optional dependency optionalmod not installed
+warning: embedded dependency embeddedlib not installed
+warning: incompatible dependency badmod not installed
+warning: unknown dependency mysterymod not installed
+Proceed with install? [y/N] Error: installation cancelled
+EXIT: 1
+```
+(Existing backward-compatible behavior: read_line returns EOF, prompt_yes_no returns false, bails)
+
+### pkg info (read-only, no prompt)
+```
+$ mcm --provider mock pkg info test.mcm
+name: test
+version: 1.0.0
+schema_version: 1
+dependencies: 0
+mods: 0
+shaderpacks: 0
+resourcepacks: 0
+datapacks: 0
+saves: 0
+configs: 0
+EXIT: 0
+```
+
+## Backward-compatibility verification
+- All 44 characterization tests pass (exact stdout/stderr preserved)
+- All 13 mvp tests pass (including interactive prompt with "y\n" stdin)
+- All 28 game_config tests pass (including "confirmation required" check)
+- All 26 pinned quirks from Task 1 preserved

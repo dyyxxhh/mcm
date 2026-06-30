@@ -2,7 +2,6 @@
 /target/
 
 # Local agent/tool state
-/.omo/
 /.codegraph/
 /.playwright-mcp/
 

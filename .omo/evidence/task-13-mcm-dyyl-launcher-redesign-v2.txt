@@ -1,0 +1,63 @@
+Task 13: Real `mcm run` launch command and execution
+=====================================================
+Date: 2026-06-29
+
+## What was done
+
+Added 8 comprehensive tests to `src/run_cmd.rs` covering all acceptance criteria:
+
+### Test results (all PASS)
+
+1. **dry_run_via_render_contains_java_path_jvm_main_class_and_auth** — Verifies `LaunchCommand::render()` produces complete dry-run output with Java path, JVM args (-Djava.library.path=), main class, auth args (--username, --uuid), game dir, and assets dir.
+
+2. **dry_run_with_fabric_loader_includes_loader_jar_in_classpath** — Verifies Fabric loader jar appears in classpath, loader metadata fields populated correctly.
+
+3. **spawn_game_succeeds_and_records_argv** — Uses a fake Java shell script that logs all arguments to a file. Verifies:
+   - Process spawns and exits successfully (code 0)
+   - JVM args include -Djava.library.path=
+   - Main class passed as argv
+   - Auth args (--username) present in argv
+
+4. **spawn_game_propagates_nonzero_exit** — Fake Java exits with code 42; verifies error message contains "game exited with code 42".
+
+5. **spawn_game_sets_working_directory_to_game_dir** — Fake Java logs `pwd`; verifies process cwd matches game root_dir.
+
+6. **run_cmd_errors_when_no_games_and_no_default** — Empty config (no games, no default_game) produces actionable error.
+
+7. **run_cmd_errors_when_default_game_not_in_games** — default_game points to nonexistent game; error mentions game name.
+
+8. **dry_run_with_online_auth_uses_account_credentials** — Online Microsoft auth mode produces correct username/session_type in LaunchCommand.
+
+## Pre-existing failure (not from this task)
+
+- `cloud_info_prints_selected_artifact_and_all_dependency_kinds` — Characterization test snapshot mismatch for `mods info` warning format (lowercase "warning:" vs capitalized "Warning:"). Fails on main branch before this change.
+
+## Verification
+
+```
+cargo test --lib run_cmd --all-features
+running 8 tests
+test run_cmd::tests::dry_run_via_render_contains_java_path_jvm_main_class_and_auth ... ok
+test run_cmd::tests::dry_run_with_fabric_loader_includes_loader_jar_in_classpath ... ok
+test run_cmd::tests::dry_run_with_online_auth_uses_account_credentials ... ok
+test run_cmd::tests::run_cmd_errors_when_default_game_not_in_games ... ok
+test run_cmd::tests::run_cmd_errors_when_no_games_and_no_default ... ok
+test run_cmd::tests::spawn_game_propagates_nonzero_exit ... ok
+test run_cmd::tests::spawn_game_sets_working_directory_to_game_dir ... ok
+test run_cmd::tests::spawn_game_succeeds_and_records_argv ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 210 filtered out
+```
+
+```
+cargo clippy --all-targets --all-features -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.50s
+(no warnings)
+```
+
+## Implementation summary
+
+- `src/run_cmd.rs` (65 lines production + ~230 lines tests): Production code was already complete (dry-run rendering, process spawning, exit propagation). Added comprehensive tests.
+- No changes to `src/launch.rs` — already complete with full pipeline tests.
+- Fake Java scripts (bash) used for spawn testing: argv logging, exit code injection, cwd logging.
+- Test fixtures reuse the `build_fixture_game` pattern from `launch.rs` tests.

@@ -1,0 +1,60 @@
+Task 3: Server configuration and secret-safe deployment contract
+================================================================
+
+## Changes Made
+
+### src/server/config.rs
+- Added `AuthMode` enum (Mock/Real) with `is_real()` helper
+- Added `auth_mode: AuthMode` field to `ServerConfig`
+- Added `oidc_redirect_url: Option<String>` field to `ServerConfig`
+- Updated `from_env()` to read `MCM_AUTH_MODE` and `MCM_OIDC_REDIRECT_URL`
+- Added `validate_oidc()` method: in Real mode, validates all 4 OIDC fields present
+- Added `parse_auth_mode()`: reads `MCM_AUTH_MODE` env var, default Mock
+- Added `log_oidc_presence()`: prints `<present>` / `<present redacted>` / `<missing>` per field (never values)
+- Updated `Debug` impl to include `auth_mode` and `oidc_redirect_url` fields
+- Added 8 new tests:
+  - `parse_auth_mode_default_is_mock`
+  - `parse_auth_mode_explicit_mock`
+  - `parse_auth_mode_real`
+  - `parse_auth_mode_invalid`
+  - `validate_oidc_skips_in_mock_mode`
+  - `validate_oidc_real_requires_all_fields`
+  - `validate_oidc_real_passes_with_all_fields`
+  - `validate_oidc_real_partial_fields_fails`
+
+### src/server/mod.rs
+- Updated all 4 test helper `ServerConfig` constructors to include `auth_mode` and `oidc_redirect_url` fields
+
+### src/server/auth.rs
+- Updated module docs to reference `MCM_AUTH_MODE` instead of deprecated `MCM_OIDC_MOCK`
+
+## Verification
+
+### cargo test --lib: ALL 154 PASS
+```
+running 154 tests
+test result: ok. 154 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+### cargo clippy --lib -- -D warnings: CLEAN
+```
+Checking mcm v0.2.0
+Finished `dev` profile [unoptimized + debuginfo]
+```
+
+## Env Vars
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `MCM_AUTH_MODE` | `mock` | `mock` or `real`. Real requires all 4 OIDC vars. |
+| `MCM_OIDC_ISSUER` | None | OIDC provider base URL |
+| `MCM_OIDC_CLIENT_ID` | None | OIDC client ID |
+| `MCM_OIDC_CLIENT_SECRET` | None | OIDC client secret (SecretString, never logged) |
+| `MCM_OIDC_REDIRECT_URL` | None | OIDC callback URL |
+
+## Security
+
+- SecretString `<redacted>` Debug impl: VERIFIED by test `server_config_debug_redacts_secret`
+- OIDC validation in real mode: VERIFIED by test `validate_oidc_real_requires_all_fields`
+- Mock mode skips validation: VERIFIED by test `validate_oidc_skips_in_mock_mode`
+- Diagnostic log prints presence only: `log_oidc_presence()` outputs `<present redacted>` for secrets

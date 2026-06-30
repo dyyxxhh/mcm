@@ -1,0 +1,87 @@
+Task 21 — Java runtime discovery/install and compatibility matrix
+=================================================================
+Date: 2026-06-28
+Status: COMPLETE (corrected: version verification added)
+
+=== Corrective Changes ===
+
+The original implementation accepted any Java on PATH or user-configured path
+without verifying its actual version. It set `runtime.major = required`
+(the MC-compatibility version) without probing what Java was actually running.
+
+Fix added:
+- `parse_java_version_output(output: &str) -> Option<JavaMajor>` — parses
+  `java -version` stderr to extract Java 8/17/21. Unit-tested with 9 test
+  case strings (Java 8, OpenJDK 8, Java 17, Java 21, EA version, unsupported,
+  garbage, empty).
+- `probe_java_version(path: &Path) -> Option<JavaMajor>` — runs `{path} -version`,
+  captures stderr, delegates to `parse_java_version_output`.
+- Updated `discover_java_impl`:
+  * User-configured java_path: probe version → accept if matches required;
+    bail with actionable error if wrong major; skip if unprobeable.
+  * Managed runtime: verify via sidecar `java.version` marker (written at
+    install time alongside the binary).
+  * System Java: probe version → accept if matches required; silently fall
+    through to install plan if wrong major.
+- `install_managed_java` now writes `{bin_dir}/java.version` sidecar.
+- Test helpers: `make_mock_java()` creates executable shell scripts with
+  deterministic `java -version` output for testing probe behavior.
+
+=== RED → GREEN Proof ===
+
+Unit tests (src/runtime.rs — 35 tests, up from 16):
+  All version-parsing tests (9): parse_java_version_output for Java 8/17/21,
+    EA versions, unsupported/garbage/empty.
+  All probe tests (5): mock java 21/17/8, non-java, nonexistent path.
+  All discovery tests (10): correct-major accepts, wrong-major user config
+    rejected, wrong-major system Java falls through, managed marker verified,
+    unprobeable user config skips, missing marker rejects, no-java install plan.
+  All install tests (4): download engine, version marker, hash verify, bytes.
+  All existing matrix tests (7): MC version mapping unchanged.
+  Total: 35 unit tests, all PASS
+
+Integration tests (tests/runtime.rs — 12 tests, up from 10):
+  game_runtime_install_rejects_wrong_major_user_config              PASS
+  game_runtime_install_rejects_wrong_major_system_java_and_proceeds PASS
+  + 10 original tests all PASS
+
+Backward-compatibility tests (prior tasks):
+  cargo test --test game_install — 28 tests                         PASS
+  cargo test --test game_config — 22 tests                          PASS
+  cargo test --test mc_target — 17 tests                            PASS
+Full suite: 447 tests, all GREEN
+
+=== Manual QA ===
+
+1. Wrong-major system Java: Install MC 1.20.1 game, put mock Java 8 on PATH,
+   run `game runtime install dev --yes` → installs managed Java 17 (system
+   Java 8 rejected). Verified with version marker file check.
+
+2. Wrong-major user config: Configure `java_path` pointing to mock Java 21
+   executable. `game runtime info dev` → shows "configured java ... is version
+   21, but MC 1.20.1 requires Java 17". `game runtime install dev --yes` →
+   errors with same message.
+
+3. System-wide install unchanged: `--system --yes` prints sudo command.
+
+4. Cleanup: All temp dirs removed.
+
+=== Files Changed ===
+
+MOD: src/runtime.rs (199 pure LOC prod) — added parse_java_version_output,
+     probe_java_version, version marker sidecar, updated discover_java_impl
+     with version verification, 19 new unit tests (35 total)
+MOD: tests/runtime.rs (316 pure LOC) — added make_mock_java helper,
+     2 wrong-major integration tests (12 total)
+UNCHANGED: src/runtime_cmd.rs, src/cli.rs, src/game_cmd.rs, src/lib.rs
+
+=== Adversarial QA ===
+malformed_input: Java version strings parsed correctly: standard formats,
+  EA (-ea), plus, garbage, empty. Unknown/unsupported versions return None.
+stale_state: Integration tests use fresh temp dirs, mock java scripts with
+  chmod +x, no env var races (test seam parameter).
+flaky_tests: All deterministic — Java version parsing is pure function;
+  probe runs deterministic mock scripts that always produce same output.
+misleading_success_output: Wrong-major Java produces actionable error with
+  both actual and required versions. System wrong-major silently falls through.
+confirmation_policy: Unchanged (OperationKind::RuntimeInstall still Bypassable).

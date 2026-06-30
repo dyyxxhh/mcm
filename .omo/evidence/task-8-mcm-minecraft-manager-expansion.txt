@@ -1,0 +1,103 @@
+Task: 8 — Implement source config CLI and no-default-source invariant
+Date: 2026-06-25 17:02:47 UTC
+Status: COMPLETE
+
+## Summary
+Implemented `mcm source {add|remove|info|list}` for manually imported custom
+sources. Fresh config has zero sources (no author source preinstalled). Adding
+a source requires confirmation via `require_confirmation(OperationKind::SourceAction)`
+unless `--yes`. Config persists to `config.toml` under `[sources."url"]`.
+
+## Files changed
+- NEW: `src/source_cmd.rs` (59 pure LOC) — `source` dispatch + add/remove/info/list on `App`
+- NEW: `tests/source_cmd.rs` (12 tests) — all scenarios from task spec
+- MODIFIED: `src/config.rs` (25→34 pure LOC) — added `SourceRecord` struct + `sources: BTreeMap<String, SourceRecord>` field with `#[serde(default)]`
+- MODIFIED: `src/app.rs` — removed private `fn source` stub (dispatch moved to `source_cmd.rs`)
+- MODIFIED: `src/lib.rs` — added `mod source_cmd;` + docstring entry
+
+## Verification
+
+### cargo test (204 tests, all green)
+- 32 lib + 44 char + 21 confirmation + 28 game_config + 7 help + 17 mc_target + 30 mcm_package + 13 mvp + 12 source_cmd
+- Previous baseline: 192 tests → added 12 source_cmd tests
+
+### cargo fmt --check
+Clean (no diff).
+
+### cargo clippy --all-targets --all-features -- -D warnings
+Clean (0 warnings).
+
+## Hands-on QA (release binary, temp config/state dirs)
+
+=== 1. Fresh config: source list (expect empty, exit 0) ===
+exit=0
+
+=== 2. source add --yes ===
+added source https://example.test/index.json
+exit=0
+
+=== 3. source list (expect 1 URL) ===
+https://example.test/index.json
+exit=0
+
+=== 4. source info ===
+url: https://example.test/index.json
+status: trusted (manual import)
+added_at: 2026-06-25 17:02:47.171424533 +00:00:00
+exit=0
+
+=== 5. duplicate add (expect error) ===
+Error: source https://example.test/index.json is already imported
+exit=1
+
+=== 6. add without --yes in non-TTY (expect error) ===
+exit=1  (stderr: Error: confirmation required; pass --yes to proceed)
+
+=== 7. source remove ===
+removed source https://example.test/index.json
+exit=0
+
+=== 8. source list after remove (expect empty) ===
+exit=0
+
+=== 9. source info unknown (expect error) ===
+Error: unknown source https://nonexistent.test
+exit=1
+
+=== 10. source remove unknown (expect error) ===
+Error: unknown source https://nonexistent.test
+exit=1
+
+=== 11. config.toml content after add ===
+[profiles]
+
+[games]
+
+[global]
+root_dir = "/home/usr/mcm"
+
+[sources."https://example.test/index.json"]
+url = "https://example.test/index.json"
+added_at = "2026-06-25 17:02:47.204605188 +00:00:00"
+
+## Test scenarios (tests/source_cmd.rs, 12 tests)
+1. `source_list_on_fresh_config_is_empty` — fresh config, empty stdout, exit 0
+2. `fresh_config_has_no_sources_on_disk` — no config.toml created by just listing
+3. `source_add_with_yes_succeeds_and_appears_in_list` — add + verify in list
+4. `source_add_persists_to_config_toml` — `[sources."url"]` key in TOML
+5. `source_add_without_yes_bails_in_non_tty` — confirmation required, nothing persisted
+6. `source_add_duplicate_bails` — "already imported" error
+7. `source_info_prints_url_and_trusted_status` — url + status + added_at
+8. `source_info_unknown_errors` — "unknown source" error
+9. `source_remove_removes_from_list` — remove + verify list empty
+10. `source_remove_unknown_errors` — "unknown source" error
+11. `source_list_multiple_sources_in_alphabetical_order` — BTreeMap sorted key order
+12. `source_added_in_one_config_not_in_another` — config isolation
+
+## LOC check
+- src/source_cmd.rs: 59 pure LOC (≤250 ✓)
+- src/config.rs: 34 pure LOC (≤250 ✓)
+- src/app.rs: 221 pure LOC (≤250 ✓)
+
+## Commit
+feat(source): manage manually trusted custom sources

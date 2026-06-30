@@ -1,0 +1,120 @@
+=== FAILURE-PATH QA: list without active profile ===
+Command: cargo run -- --config-dir $TMP/c --state-dir $TMP/s list (no profile configured)
+TMP=/tmp/tmp.4v0Dm9AzEv
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.86s
+     Running `target/debug/mcm --config-dir /tmp/tmp.4v0Dm9AzEv/c --state-dir /tmp/tmp.4v0Dm9AzEv/s list`
+Error: no active profile; run profile add or profile use
+exit=1
+
+================================================================
+=== HAPPY PATH: cargo test --test mvp -- --nocapture ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.80s
+     Running tests/mvp.rs (target/debug/deps/mvp-d15c8195afa1601e)
+
+running 13 tests
+test local_jar_info_falls_back_to_hash_without_fake_provider_identity ... ok
+test curseforge_provider_requires_api_key ... ok
+test cloud_info_uses_profile_constraints_and_surfaces_optional_dependency ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test install_searches_query_first_and_yes_accepts_plan ... ok
+test install_dry_run_does_not_write_jars ... ok
+test install_single_mod_installs_required_dependency_but_not_optional_or_beta ... ok
+test install_file_parses_comments_into_one_plan ... ok
+test missing_download_url_errors_without_partial_install ... ok
+test search_groups_same_logical_mod_across_provider_candidates_and_excludes_beta ... ok
+test remove_and_autoremove_preserve_required_deps_until_no_manual_roots_need_them ... ok
+test profile_add_use_show_and_list_work_with_isolated_paths ... ok
+test status_detects_missing_changed_and_untracked_jars_without_deleting_untracked ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.79s
+
+
+================================================================
+=== cargo test --test help ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.89s
+     Running tests/help.rs (target/debug/deps/help-2cf1ed63ad32a9e7)
+
+running 2 tests
+test help_lists_wave_1_commands_and_description ... ok
+test install_help_lists_file_option_for_mod_list ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+================================================================
+=== cargo test --test characterization ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running tests/characterization.rs (target/debug/deps/characterization-dc8c74b235e38681)
+
+running 44 tests
+test info_cloud_without_active_profile_errors ... ok
+test cloud_info_for_brokenmod_succeeds_without_download_url ... ok
+test cloud_info_prints_selected_artifact_and_all_dependency_kinds ... ok
+test cloud_info_for_standalone_has_no_dep_lines ... ok
+test install_dry_run_prints_plan_without_writing_jars ... ok
+test install_file_missing_errors_on_read ... ok
+test autoremove_nothing_to_do_is_silent_success ... ok
+test autoremove_requires_yes_when_removable ... ok
+test install_file_parses_comments_and_blank_lines_into_one_plan ... ok
+test install_missing_download_url_errors_and_leaves_no_partial_jar ... ok
+test install_rootmod_emits_all_four_warning_kinds_in_order ... ok
+test autoremove_keeps_required_dep_while_manual_root_still_needs_it ... ok
+test install_search_query_not_found_errors ... ok
+test list_without_active_profile_errors_with_actionable_message ... ok
+test local_jar_info_falls_back_to_hash_when_metadata_unavailable ... ok
+test install_without_query_or_file_errors ... ok
+test local_jar_info_nonexistent_jar_path_errors_on_read ... ok
+test list_empty_is_silent_success ... ok
+test local_jar_info_reads_fabric_mod_json_id_and_version ... ok
+test local_jar_info_reads_mcmod_info_array_fields ... ok
+test local_jar_info_reads_mods_toml_modid_and_version_lines ... ok
+test profile_list_empty_is_silent_success ... ok
+test local_jar_info_zip_without_known_metadata_reports_unavailable ... ok
+test profile_add_defaults_side_to_both_and_show_uses_debug_format ... ok
+test list_prints_installed_mods_alphabetically_with_reason_and_identity ... ok
+test profile_show_named_unknown_errors ... ok
+test profile_use_unknown_profile_errors ... ok
+test profile_add_sets_new_profile_active_and_creates_mods_dir ... ok
+test provider_curseforge_requires_api_key_env ... ok
+test provider_mock_works_offline_for_search ... ok
+test provider_curseforge_info_also_requires_api_key ... ok
+test remove_auto_dependency_is_rejected_with_autoremove_hint ... ok
+test remove_requires_yes_flag ... ok
+test search_without_active_profile_errors ... ok
+test profile_use_switches_active_and_list_marks_active_with_star ... ok
+test remove_unknown_mod_errors ... ok
+test search_matches_title_substring_case_insensitively ... ok
+test search_no_match_is_silent_success ... ok
+test search_groups_duplicate_candidates_by_logical_id ... ok
+test remove_manual_root_keeps_auto_required_dep_until_autoremove ... ok
+test status_without_active_profile_errors ... ok
+test status_reports_ok_for_intact_owned_jars ... ok
+test uninstall_is_alias_for_remove ... ok
+test status_reports_missing_and_changed_and_untracked_without_claiming_untracked ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+
+================================================================
+=== cargo test --lib ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running unittests src/lib.rs (target/debug/deps/mcm-5b33887f916daacf)
+
+running 14 tests
+test tests::composite_provider_merges_projects_from_multiple_sources ... ok
+test tests::build_plan_records_resolved_dependency_logical_id_for_reachability ... ok
+test tests::curseforge_json_mapping_preserves_slug_files_hashes_and_dependencies ... ok
+test tests::mcmod_info_fields_are_read_from_generated_zip ... ok
+test tests::modrinth_json_mapping_preserves_project_artifacts_dependencies_and_release_types ... ok
+test tests::sanitize_filename_rejects_null_drive_and_reserved_names ... ok
+test tests::curseforge_download_refuses_when_url_host_not_allowlisted ... ok
+test tests::curseforge_download_sends_api_key_header_to_allowlisted_cdn ... ok
+test tests::sanitize_filename_rejects_traversal_and_non_jars ... ok
+test tests::select_artifact_uses_numeric_versions_and_download_count_tiebreaker ... ok
+test tests::validate_download_url_allowlists_only_known_cdn_hosts ... ok
+test tests::validate_download_url_requires_https_and_rejects_private_hosts ... ok
+test tests::modrinth_http_client_does_not_follow_redirects_after_url_validation ... ok
+test tests::curseforge_http_client_does_not_follow_redirects_with_api_key_headers ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+

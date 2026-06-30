@@ -1,0 +1,111 @@
+# Task 17 — /install bootstrap script route
+**Completed:** 2026-06-27 12:05 UTC
+**Files changed:**
+- NEW: `src/server/install.rs` (install script route + shell script + unit tests)
+- NEW: `tests/server_install.rs` (6 integration tests)
+- MODIFIED: `src/server/mod.rs` (added mod install, mounted /install route)
+
+---
+
+## QA Scenario 1 — Happy path: curl /install returns shell script, install succeeds
+
+```
+$ curl -fsSL http://127.0.0.1:18950/install -o install-script.sh
+$ head -1 install-script.sh
+#!/bin/sh
+$ wc -l install-script.sh
+179
+$ curl -sI http://127.0.0.1:18950/install | head -5
+HTTP/1.1 200 OK
+content-type: text/x-shellscript; charset=utf-8
+cache-control: no-cache
+content-length: 6052
+```
+
+Running with mock release (serving fake `mcm` binary):
+```
+$ MCM_INSTALL_PREFIX=/tmp/prefix MCM_RELEASE_BASE_URL=http://127.0.0.1:18951 sh install-script.sh
+Downloading MCM for linux/x86_64...
+Verifying checksum...
+Checksum verified.
+Extracting...
+MCM has been installed to /tmp/prefix/mcm
+Run '/tmp/prefix/mcm --help' to get started.
+Exit code: 0
+$ /tmp/prefix/mcm --version
+mcm version 0.1.0 (mock)
+```
+
+## QA Scenario 2 — Checksum mismatch aborts before install
+
+```
+$ MCM_INSTALL_PREFIX=/tmp/prefix2 MCM_RELEASE_BASE_URL=http://127.0.0.1:18952 sh install-script.sh
+Downloading MCM for linux/x86_64...
+Verifying checksum...
+Error: checksum verification failed.
+The downloaded archive may be corrupted or tampered with.
+Aborting installation.
+Exit code: 1
+Installed binary: NO (confirmed no file at /tmp/prefix2/mcm)
+```
+
+## QA Scenario 3a — Unsupported OS
+
+```
+$ MCM_INSTALL_OS=windows sh install-script.sh
+Error: unsupported OS 'windows'.
+MCM bootstrap currently supports Linux x86_64 only.
+See https://github.com/code-yeongyu/mcm for other platforms.
+Exit code: 1
+```
+
+## QA Scenario 3b — Unsupported Architecture
+
+```
+$ MCM_INSTALL_ARCH=arm64 sh install-script.sh
+Error: unsupported architecture 'arm64'.
+MCM bootstrap currently supports x86_64 only.
+Exit code: 1
+```
+
+## QA Scenario 4 — Dry-run / Preview mode (MCM_INSTALL_DRY_RUN=true)
+
+```
+$ MCM_INSTALL_DRY_RUN=true MCM_INSTALL_PREFIX=/tmp/prefix4 MCM_RELEASE_BASE_URL=http://127.0.0.1:18951 sh install-script.sh
+[DRY-RUN] Release base URL: http://127.0.0.1:18951
+[DRY-RUN] Would download:   http://127.0.0.1:18951/mcm-x86_64-linux.tar.gz
+[DRY-RUN] Would verify:     http://127.0.0.1:18951/mcm-x86_64-linux.tar.gz.sha256
+[DRY-RUN] Would install to: /tmp/prefix4/mcm
+[DRY-RUN] OS=linux ARCH=x86_64
+Exit code: 0
+(No files written — /tmp/prefix4 was never created)
+```
+
+---
+
+## Cleanup receipt
+
+All spawned resources cleaned:
+- `kill $SERVER_PID` — MCM server (port 18950) — done
+- `kill $MOCK_PID` — mock release HTTP server (port 18951) — done
+- `kill $MISMATCH_PID` — mismatch test HTTP server (port 18952) — done
+- `rm -rf /tmp/mcm-qa-task17 /tmp/mcm-qa-mock-release` — done
+- `tmux kill-session -t mcm-qa` — done
+- `tmux kill-session -t mock-release` — done
+- No zombie PIDs, no leftover ports, no stray temp files
+
+## Test results
+
+All 12 lib unit tests (src/server/install.rs) PASS.
+All 6 integration tests (tests/server_install.rs) PASS.
+Full suite: ~365 tests, all green.
+`cargo fmt --check` PASS.
+`cargo clippy --all-targets --all-features -- -D warnings` PASS.
+lsp_diagnostics: no errors in changed files.
+
+## Risk / notes
+
+- `/install` is mounted BEFORE the API fallback and SPA fallback, so it won't be caught by the wildcard handler.
+- The route is public (no auth required), matching the spec.
+- Script env overrides (`MCM_INSTALL_PREFIX`, `MCM_RELEASE_BASE_URL`, `MCM_INSTALL_OS`, `MCM_INSTALL_ARCH`, `MCM_INSTALL_DRY_RUN`) are documented in script comments.
+- No `curl | sh` pipe inside the script itself — downloads go to temp, verified with sha256sum, then extracted with tar and copied.

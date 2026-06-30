@@ -1,0 +1,110 @@
+# Task 11: Import/export standard modpack formats
+
+## Acceptance criteria checklist
+
+| # | Criterion | Status | Command / Evidence |
+|---|-----------|--------|--------------------|
+| 1 | `mcm pkg install ./sample.mrpack --yes --provider mock` installs declared assets | VERIFIED | `cargo test --test modpack_import mrpack_import_installs_mods_and_overrides` — 14 passed |
+| 2 | `mcm pkg install ./cf-pack.zip --yes --provider mock` installs CF manifest + overrides; unresolvable mods → warnings | VERIFIED | `cargo test --test modpack_import curseforge_import_installs_overrides_and_warns_on_unresolvable_mods` — ok |
+| 3 | Path traversal (`../evil`, absolute, backslash) rejected; no partial install | VERIFIED | `cargo test --test modpack_import path_traversal_entry_rejected_no_partial_install absolute_path_entry_rejected backslash_path_entry_rejected` — 3 ok |
+| 4 | Oversized archive rejected by size/entry-count limit | VERIFIED | `cargo test --test modpack_import oversized_archive_rejected` — ok |
+| 5 | `pkg make --format {mcm,mrpack,curseforge}` flag; default `mcm` | VERIFIED | `cargo test --test modpack_import pkg_make_default_format_is_mcm pkg_make_mrpack_writes_valid_mrpack` — 2 ok; curseforge export returns "not implemented yet" (stub for future task) |
+| 6 | `--format mrpack` writes valid `.mrpack` zip from current game state | VERIFIED | `cargo test --test modpack_import pkg_make_mrpack_writes_valid_mrpack` — ok |
+| 7 | Round-trip import of exported mrpack succeeds | VERIFIED | `cargo test --test modpack_import pkg_make_mrpack_round_trip_import` — ok |
+| 8 | Hash verification for .mrpack files with sha512 hashes | VERIFIED | `cargo test --test modpack_import mrpack_import_hash_mismatch_rejected` — ok (mismatch rejected) |
+| 9 | Secret field rejection in modrinth.index.json / manifest.json | VERIFIED | `cargo test --test modpack_import secret_field_in_mrpack_index_rejected` — ok |
+| 10 | Non-modpack zip rejected with clear error | VERIFIED | `cargo test --test modpack_import non_modpack_zip_rejected` — ok |
+| 11 | Confirmation policy: `--yes` required in non-TTY | VERIFIED | `cargo test --test modpack_import mrpack_import_without_yes_bails` — ok |
+| 12 | Top-level `install` dispatches to modpack import for `.mrpack` | VERIFIED | `cargo test --test modpack_import top_install_dispatches_to_mrpack_import` — ok |
+| 13 | `cargo test --test modpack_import` passes | VERIFIED | 14 passed; 0 failed |
+| 14 | `cargo test` (full suite) stays green | VERIFIED | 272 passed; 0 failed across 14 test binaries |
+| 15 | `cargo fmt --check` clean | VERIFIED | exit 0 |
+| 16 | `cargo clippy --all-targets --all-features -- -D warnings` clean | VERIFIED | exit 0 |
+
+## QA scenarios
+
+### Happy path: .mrpack import
+```
+$ mcm --provider mock pkg install ./test.mrpack --yes
+imported modpack
+```
+- Mod jar `mods/testmod.jar` written to game root
+- Override `config/sodium.toml` copied
+- Lock entry `testmod` recorded in `dev.lock.json`
+
+### Happy path: CurseForge import
+```
+$ mcm --provider mock pkg install ./cf.zip --yes
+warning: could not resolve curseforge mod 123456:789012 — mock provider: no download_url
+imported modpack
+```
+- Override `config/options.txt` copied
+- Unresolvable mod surfaced as stderr warning, install succeeds
+
+### Happy path: round-trip export→import
+```
+$ mcm --provider mock pkg make --format mrpack --yes
+wrote dev.mrpack
+$ mcm --provider mock pkg install ./dev.mrpack --yes   # in fresh profile
+imported modpack
+```
+- `rootmod-1.0.0.jar` installed in target profile mods dir
+- Lock entry `rootmod` recorded in `target.lock.json`
+
+### Failure: path traversal rejected, no partial install
+```
+$ mcm --provider mock pkg install ./evil.mrpack --yes
+Error: asset path must not be absolute or traverse: ../evil.txt
+```
+- Neither `evil.txt` nor `config/safe.toml` written
+
+### Failure: hash mismatch rejected
+```
+$ mcm --provider mock pkg install ./bad.mrpack --yes
+Error: hash mismatch for mods/testmod.jar
+```
+
+### Failure: oversized archive rejected
+```
+$ mcm --provider mock pkg install ./huge.mrpack --yes
+Error: archive total size exceeds 268435456 bytes (zip-bomb protection)
+```
+
+### Failure: secret field rejected
+```
+$ mcm --provider mock pkg install ./secret.mrpack --yes
+Error: package contains secret field: api_key
+```
+
+### Failure: non-modpack zip rejected
+```
+$ mcm --provider mock pkg install ./random.zip --yes
+Error: not a modpack: ./random.zip (no modrinth.index.json or manifest.json at zip root)
+```
+
+## Files touched
+- NEW: `src/modpack_import.rs` (72 pure LOC) — hub: dispatch, limits, format detection
+- NEW: `src/modpack_import/types.rs` (62 pure LOC) — DTOs
+- NEW: `src/modpack_import/import.rs` (229 pure LOC) — import logic
+- NEW: `src/modpack_import/export.rs` (111 pure LOC) — export logic
+- NEW: `tests/modpack_import.rs` (475 pure LOC, test fixture exempt) — 14 tests
+- MODIFIED: `src/lib.rs` (+1 module + docstring)
+- MODIFIED: `src/cli.rs` (+`MakeFormat` enum + `--format` flag)
+- MODIFIED: `src/mcm_package.rs` (`scan_for_secrets` → `pub(crate)`)
+- MODIFIED: `src/pkg_cmd.rs` (`pkg_make` dispatch on `MakeFormat`)
+- MODIFIED: `src/pkg_install.rs` (`pkg_install`/`pkg_download` call `import_modpack` first)
+
+## Design decisions
+1. **Module split** under 250 LOC ceiling: hub (72) + types (62) + import (229) + export (111).
+2. **`Cursor<&[u8]>`** type for `ZipArchive` — read file into `Vec<u8>`, pass `as_slice()`.
+3. **Double-borrow fix** in `collect_zip_overrides`: two-pass (collect indices, then read bytes).
+4. **Hash strategy**: sha512 verified in plan stage; sha256 computed from actual bytes for lock (not trusted from mcm meta).
+5. **CurseForge resolution**: best-effort + warning; install does not fail on unresolvable mods.
+6. **Path safety**: reuses `validate_asset_path`; validation before any write (no partial install).
+7. **Size limits**: 256 MB total, 10 000 entries (constants in `modpack_import.rs`).
+8. **Secret rejection**: `scan_for_secrets` bumped to `pub(crate)`, runs on both index and manifest JSON.
+9. **Export**: `ZipWriter` with stored entries; copies `config/`/`shaderpacks/`/`resourcepacks/` into `overrides/`.
+
+## Test counts
+- `tests/modpack_import.rs`: 14 tests
+- Full suite: 272 tests pass (44+0+44+21+28+7+17+30+14+13+29+12+13+0)

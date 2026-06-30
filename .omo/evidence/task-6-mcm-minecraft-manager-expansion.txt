@@ -1,0 +1,113 @@
+## Task 6 — Define `.mcm` package schema and parser boundary
+
+**Date:** 2026-06-25
+**Status:** COMPLETE
+**Verification:** `cargo fmt --check` clean, `cargo clippy --all-targets --all-features -- -D warnings` clean, `cargo test` 162/162 green (132 prior + 30 new mcm_package tests).
+
+### Files touched
+- NEW: `src/mcm_package.rs` (177 pure LOC) — schema-versioned `McmPackage` type family + `parse_mcm_package()` boundary parser + validation helpers
+- NEW: `tests/mcm_package.rs` (30 tests) — pure parser unit tests + CLI-surface `pkg info` tests
+- MODIFIED: `src/lib.rs` (21 → 23 pure LOC) — added `mod mcm_package` + re-exports + docstring entry
+- MODIFIED: `src/app.rs` (192 → 227 pure LOC) — wired `pkg info` to real implementation; other `pkg` subcommands stay `not_implemented()`
+
+### Schema design
+```rust
+pub struct McmPackage {
+    schema_version: u32,           // currently only 1
+    name: String,                  // normalized [a-z0-9-], 1-64, no reserved names
+    version: String,
+    description: Option<String>,
+    game_version: Option<String>,
+    loader: Option<String>,
+    dependencies: Vec<Dependency>,            // {name, version_requirement?}
+    mods: Vec<ModEntry>,                      // {logical_id, provider, project_id, file_id, version, filename, sha256?, download_url?}
+    shaderpacks: Vec<Asset>,                  // {path, source: embedded|referenced, hash?, size?}
+    resourcepacks: Vec<Asset>,
+    datapacks: Vec<Asset>,
+    saves: Vec<Asset>,
+    configs: Vec<Asset>,
+    actions: Option<Vec<Action>>,             // {name, kind: shell, command, cwd?} — Linux shell only
+    launch: Option<LaunchRequest>,            // {game?, args}
+    local: Option<LocalPrivate>,              // {settings: BTreeMap, history: Vec} — excluded from public export
+}
+```
+
+### Boundary parser enforcement (parse_mcm_package)
+1. **Size limit**: JSON > 10MB → `bail!("package JSON exceeds {MAX_JSON_BYTES} bytes")`
+2. **Depth limit**: nesting > 64 → `bail!("package JSON nesting depth {depth} exceeds {MAX_DEPTH}")`
+3. **Secret scan**: recursively scans deserialized `serde_json::Value` BEFORE typed parse; any key (case-insensitive) containing `token`/`secret`/`password`/`credential`/`api_key` → `bail!("package contains secret field: {key}")`
+4. **Schema version**: field `schema_version: u32`; only version 1 supported; unknown → `bail!("unsupported schema version {X}")`
+5. **Package name normalization**: lowercase `[a-z0-9-]`, 1-64 chars, alphanumeric start/end, no consecutive hyphens, no reserved names (`mcm` + Windows reserved: `con`/`prn`/`aux`/`nul`/`com1-9`/`lpt1-9`)
+6. **Asset path traversal**: rejects empty, null bytes, `..`, absolute paths (`/`), backslashes, Windows-reserved path components
+7. **No raw `serde_json::Value` in domain logic**: parsed once at boundary into typed `McmPackage`; the only opaque `Value` is in `LocalPrivate` (settings/history) which domain logic never interprets
+
+### CLI surface: `pkg info <path>`
+Reads `.mcm` file → `parse_mcm_package` → prints normalized summary (name, version, description, game_version, loader, schema_version, counts of all asset types, actions/launch/local presence). Read-only — installs nothing.
+
+### Test coverage (30 tests)
+- 4 valid-package tests (minimal, full, all-optional-fields, longest-valid-name)
+- 2 schema-version tests (unknown version 99, missing field)
+- 7 name-validation tests (reserved `mcm`/Windows, uppercase/underscore/dot, leading/trailing hyphen, consecutive hyphens, too-long, 64-char boundary)
+- 3 secret-rejection tests (top-level `api_token`, nested `PASSWORD` case-insensitive, secret in array element)
+- 2 size/depth tests (11MB JSON, 100-level nesting)
+- 2 path-traversal tests (6 bad paths, 1 valid nested path)
+- 2 missing-fields tests (4 missing-field cases, empty object)
+- 8 CLI-surface tests (valid print, missing file, secret field, path traversal, unknown schema, reserved name, local present, stub install/list)
+
+### Manual QA evidence (real CLI surface)
+```
+$ mcm --provider mock pkg info /tmp/mcm-qa/valid.mcm
+name: my-modpack
+version: 1.2.3
+description: A test modpack for QA
+game_version: 1.20.1
+loader: fabric
+schema_version: 1
+dependencies: 1
+mods: 2
+shaderpacks: 1
+resourcepacks: 0
+datapacks: 0
+saves: 0
+configs: 1
+actions: 1
+launch.game: dev
+launch.args: 2
+local: present (excluded from public export)
+exit=0
+
+$ mcm --provider mock pkg info /tmp/mcm-qa/evil-secret.mcm
+Error: package contains secret field: api_token
+exit=1
+
+$ mcm --provider mock pkg info /tmp/mcm-qa/evil-traversal.mcm
+Error: asset path must not be absolute or traverse: ../escape.zip
+exit=1
+
+$ mcm --provider mock pkg info /tmp/mcm-qa/evil-schema.mcm
+Error: unsupported schema version 99
+exit=1
+
+$ mcm --provider mock pkg info /tmp/mcm-qa/evil-reserved.mcm
+Error: package name mcm is reserved
+exit=1
+
+$ mcm --provider mock pkg info /tmp/mcm-qa/evil-badname.mcm
+Error: package name must contain only [a-z0-9-]
+exit=1
+
+$ mcm --provider mock pkg info /tmp/mcm-qa/nonexistent.mcm
+Error: read /tmp/mcm-qa/nonexistent.mcm
+exit=1
+```
+
+### Constraints honored
+- `src/mcm_package.rs` is 177 pure LOC (under 250 limit)
+- `src/app.rs` is 227 pure LOC (under 250 limit)
+- No new dependencies added (uses existing serde/serde_json/anyhow)
+- `PkgCommand` variants in `src/cli.rs` NOT modified
+- `tests/characterization.rs`, `tests/mvp.rs`, `tests/help.rs`, `tests/mc_target.rs`, `tests/game_config.rs` NOT modified
+- Other `pkg` subcommands (install/download/dl/make/share/list) remain `not_implemented()`
+- `pkg info` is read-only — no confirmation policy needed (task 7)
+- No raw `serde_json::Value` passes into domain logic (parse-once-at-boundary discipline)
+- Commit message: `feat(pkg): add typed mcm package schema`

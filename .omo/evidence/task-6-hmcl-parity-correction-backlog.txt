@@ -1,0 +1,71 @@
+Task 6: Launch/run compatibility with corrected install layout
+==============================================================
+Date: 2026-06-29
+
+## Changes Made
+
+### src/launch.rs — render() fix
+- render() now includes "-cp <classpath>" between JVM args and main class
+- Previously, -cp was filtered from jvm_args but never added to render output
+- Classpath is colon-separated, shell-quoted, rendered after JVM args
+
+### src/run_cmd.rs — spawn_game() fix
+- spawn_game() now adds "-cp <classpath_string>" between JVM args and main class
+- Uses the same colon-separated classpath as render()
+- Ensures dry-run and real execution use identical classpath construction
+
+### tests/run.rs — test fixes and additions
+
+1. run_dry_run_offline_mode_uses_stable_uuid_and_zero_token: --sessionType → --userType
+   (version JSON template uses --userType, not --sessionType)
+
+2. run_dry_run_online_mode_uses_account_credentials: --sessionType → --userType
+   (same reason as above)
+
+3. run_dry_run_with_loader_shows_loader_main_class: updated to verify version JSON
+   main class (net.minecraft.client.main.Main) and fabric resolved path in classpath
+
+4. run_without_dry_run_errors_with_not_implemented → run_without_dry_run_spawns_java_and_records_argv:
+   Replaced stale "not implemented" test with real spawn verification using fake Java
+   that records argv. Verifies -Djava.library.path, main class, --username, and -cp.
+
+5. Added run_uses_complete_installed_layout:
+   Comprehensive test verifying:
+   - Java executable in dry-run output
+   - JVM args (-Djava.library.path, launcher brand/version)
+   - Natives dir in path
+   - -cp flag with classpath
+   - Main class
+   - Game args (--username, --uuid, --accessToken, --userType, --gameDir, --assetsDir)
+   - Non-dry-run: fake Java records argv including -cp, verifies cwd = game root_dir
+
+## Test Results
+
+cargo test --test run: 12/12 PASS
+  run_uses_complete_installed_layout ... ok
+  run_without_dry_run_spawns_java_and_records_argv ... ok
+  run_dry_run_prints_launch_command_for_installed_game ... ok
+  run_dry_run_with_loader_shows_loader_main_class ... ok
+  run_dry_run_offline_mode_uses_stable_uuid_and_zero_token ... ok
+  run_dry_run_online_mode_uses_account_credentials ... ok
+  run_dry_run_offline_custom_username ... ok
+  run_dry_run_offline_mode_works_without_server_auth ... ok
+  run_dry_run_online_without_account_errors_actionably ... ok
+  run_dry_run_with_missing_default_game_errors_actionably ... ok
+  run_dry_run_without_default_game_errors_actionably ... ok
+  run_dry_run_without_java_errors_actionably ... ok
+
+cargo test --lib launch: 18/18 PASS (includes render, pipeline, auth, shell_quote tests)
+cargo test --lib run_cmd: 8/8 PASS (includes spawn argv, cwd, exit code tests)
+
+## Pre-existing Failure (NOT introduced by this task)
+- characterization::cloud_info_prints_selected_artifact_and_all_dependency_kinds
+  Expects lowercase "warning:" but output is "Warning: " — unrelated i18n string change
+
+## Acceptance Criteria Verification
+[x] cargo test --test run run_uses_complete_installed_layout -- --nocapture PASSES
+[x] mcm run --dry-run prints Java executable, JVM args, natives path, complete classpath,
+    main class, game args, assets path, auth args, and working dir
+[x] Non-dry-run fake Java records argv and cwd
+[x] Missing library/asset/native errors before spawn (pre-existing verify_game_files checks)
+[x] All existing tests still pass (12 run tests, 18 launch unit tests, 8 run_cmd unit tests)

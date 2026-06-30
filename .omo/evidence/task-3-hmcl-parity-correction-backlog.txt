@@ -1,0 +1,85 @@
+Task 3: HMCL-compatible version layout — Evidence
+=================================================
+
+Goal: Change `game install` to create Minecraft/HMCL-compatible version layout.
+Make the RED test `canonical_loader_version_layout` pass.
+
+## RED Proof (before changes)
+
+cargo test --test game_install canonical_loader_version_layout -- --nocapture
+
+Result: FAILED
+  thread 'canonical_loader_version_layout' panicked at tests/game_install.rs:948:5:
+  canonical version dir should exist at /tmp/.tmpglPUgf/mcm/dev/versions/1.21.1-neoforge-21.1.172
+  (HMCL-compatible flat layout)
+
+## GREEN Proof (after changes)
+
+cargo test --test game_install canonical_loader_version_layout -- --nocapture
+
+Result: PASSED
+  test canonical_loader_version_layout ... ok
+  test result: ok. 1 passed; 0 failed; 0 ignored; 44 filtered out
+
+## Vanilla install layout
+
+- versions/<mc_version>/<mc_version>.json
+- versions/<mc_version>/<mc_version>.jar
+Example: versions/1.20.1/1.20.1.json + versions/1.20.1/1.20.1.jar
+
+## Loader install layout (HMCL-compatible flat)
+
+- versions/<resolved-id>/<resolved-id>.json
+- versions/<resolved-id>/<resolved-id>.jar
+- versions/<resolved-id>/<loader>-<loader_version>.jar
+Example: versions/1.21.1-neoforge-21.1.172/1.21.1-neoforge-21.1.172.json
+         versions/1.21.1-neoforge-21.1.172/1.21.1-neoforge-21.1.172.jar
+         versions/1.21.1-neoforge-21.1.172/neoforge-21.1.172.jar
+
+## game info prints resolved version id
+
+home.cmd().args(["game", "info", "dev"])
+  .stdout(predicate::str::contains("resolved_version_id: 1.21.1-neoforge-21.1.172"))
+
+## Full test suite results
+
+cargo test 2>&1 | grep "test result":
+  229 passed; 0 failed   (unit tests)
+  42 passed; 3 failed    (game_install integration: 3 are expected RED)
+  43 passed; 1 failed    (characterization: cloud_info is pre-existing unrelated)
+
+Expected RED tests still failing (per task scope):
+  - game_install_materializes_libraries_assets_and_natives (Todo 5)
+  - production_install_does_not_use_mock_manifests (Todo 4)
+  - dyyl_build_produces_host_protocol_output (Todo 14)
+
+No regressions. All tests that passed before still pass.
+One NEW test now passes: canonical_loader_version_layout
+
+## Files changed
+
+1. src/game_model.rs
+   - Added `resolved_version_id: Option<String>` to GameRecord
+   - Updated migrate_profiles_to_games to set resolved_version_id
+
+2. src/game_install.rs
+   - game_install(): compute resolved_version_id, use for all paths
+   - Removed nested loader dir logic (versions/<mc>/<loader>/)
+   - write_version_json(): accepts version_id param, uses for filename + JSON id
+   - Record construction includes resolved_version_id
+   - Output includes resolved_version_id
+
+3. src/launch.rs
+   - verify_game_files(): uses resolved_version_id, flat loader jar path
+   - build_launch_command(): uses resolved_version_id for version_dir
+   - build_args_from_version_json(): uses resolved_version_id for version_dir + loader jar
+
+4. src/game_cmd.rs
+   - game_info(): prints resolved_version_id
+
+5. tests/game_install.rs
+   - assert_game_files_exist(): simplified to take version_id
+   - assert_version_json_has_mojang_fields(): uses version_id for path + id check
+   - game_install_with_loader_creates_metadata_and_loader_dir(): flat layout assertions
+   - All loader test callers pass resolved_id instead of mc_version
+   - game_install_persists_all_fields_in_config: asserts resolved_version_id in config

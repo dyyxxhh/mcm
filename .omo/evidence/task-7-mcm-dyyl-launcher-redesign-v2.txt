@@ -1,0 +1,83 @@
+Task 7: CLI auth/session commands for pkg share
+================================================
+Date: 2026-06-28
+
+## Acceptance Criteria Verification
+
+### ✅ `mcm pkg auth login --server <url>` prints browser auth URL, polls session transaction, stores MCM session token
+
+Evidence:
+- tests/pkg_auth.rs::pkg_auth_login_prints_url_and_stores_token — PASSES
+  - Mock server starts on random port
+  - CLI calls /api/auth/oidc/start?client=cli → gets auth_url + login_id
+  - Test triggers callback via HTTP to simulate browser auth
+  - CLI polls /api/auth/oidc/poll/{login_id} → receives token
+  - Session file created at {state_dir}/pkg-auth/{server_hash}.json with {server, token}
+  - stdout contains "test-user" (owner display name)
+
+### ✅ `mcm pkg auth status --server <url>` prints authenticated owner or unauthenticated status
+
+Evidence:
+- tests/pkg_auth.rs::pkg_auth_status_shows_authenticated — PASSES
+  - Creates session file with valid token from mock server
+  - CLI calls /api/auth/oidc/session with Bearer token → gets owner
+  - stdout contains "status-user"
+- tests/pkg_auth.rs::pkg_auth_status_shows_not_authenticated — PASSES
+  - No session file exists
+  - stdout contains "Not authenticated"
+
+### ✅ `mcm pkg auth logout --server <url>` removes local session and calls server logout
+
+Evidence:
+- tests/pkg_auth.rs::pkg_auth_logout_removes_session — PASSES
+  - Session file exists before logout
+  - CLI calls /api/auth/oidc/logout with Bearer token
+  - Session file is deleted
+  - stdout contains "Logged out"
+- tests/pkg_auth.rs::pkg_auth_logout_without_session_succeeds — PASSES
+  - No session file exists
+  - CLI succeeds gracefully
+  - stdout contains "Logged out"
+
+### ✅ CLI never knows OIDC client secret
+
+Implementation:
+- src/pkg_auth.rs: CLI only calls /api/auth/oidc/start and /api/auth/oidc/poll endpoints
+- OIDC token exchange happens server-side in src/server/auth/oidc.rs
+- Client secret is never sent to CLI
+
+### ✅ Token is not printed or leaked
+
+Evidence:
+- tests/pkg_auth.rs::pkg_auth_login_does_not_print_token — PASSES
+  - Combined stdout+stderr does not contain "sess-"
+  - Token only stored in session file on disk
+
+### ✅ `cargo test` passes
+
+Evidence:
+- cargo test --test pkg_auth: 6/6 passed
+- cargo test (unit): 172/172 passed
+- 1 pre-existing characterization test failure (unrelated format change in concurrent task)
+
+### ✅ `cargo clippy --all-targets --all-features -- -D warnings` passes
+
+Evidence: clean output, zero warnings/errors
+
+## Files Modified
+
+- src/cli.rs: Added PkgAuthCommand enum (Login/Status/Logout with --server) + PkgCommand::Auth variant
+- src/pkg_auth.rs: NEW — CLI auth module with login/status/logout, session file persistence
+- src/i18n.rs: Added i18n strings for auth commands (EN/ZH) + share_client OIDC strings
+- src/lib.rs: Registered mod pkg_auth, exported PkgAuthCommand
+- src/pkg_cmd.rs: Wired PkgCommand::Auth dispatch
+- src/share_client.rs: Added get_inner() accessor, fixed clippy issues
+- tests/pkg_auth.rs: NEW — 6 integration tests
+
+## Security Properties
+
+1. CLI only calls server HTTP endpoints — never handles OIDC client secret
+2. Only MCM session token stored locally (not provider access/id/refresh tokens)
+3. Token never printed in stdout/stderr
+4. Session files stored with hashed server URL as filename (SHA-256 truncated)
+5. Session file uses atomic write (write to tmp, rename)

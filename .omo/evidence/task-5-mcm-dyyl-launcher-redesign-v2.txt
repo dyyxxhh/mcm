@@ -1,0 +1,63 @@
+Task 5: Share API completeness for CLI and Web management
+=========================================================
+Completed: 2026-06-28
+
+## API Endpoints Implemented
+
+| Endpoint | Method | Auth | Status | Test |
+|---|---|---|---|---|
+| GET /api/share/list | GET | None | ✅ Enhanced metadata | http_list_returns_enhanced_metadata |
+| GET /api/share/mine | GET | AuthedOwner | ✅ NEW | http_mine_returns_only_owner_packages, http_mine_without_auth_returns_401, http_mine_only_shows_own_packages |
+| POST /api/share/pkg | POST | AuthedOwner | ✅ Install-only validation added | http_publish_rejects_actions, http_publish_rejects_launch, http_publish_rejects_local |
+| GET /api/share/pkg/{slug} | GET | None | ✅ Unchanged | http_publish_download_update_delete_roundtrip_with_clock |
+| PUT /api/share/pkg/{slug} | PUT | AuthedOwner + owner | ✅ Metadata update added | http_update_owner_mismatch_returns_403 |
+| DELETE /api/share/pkg/{slug} | DELETE | AuthedOwner + owner | ✅ Unchanged | http_delete_owner_mismatch_returns_403 |
+| GET /api/share/pkg/{slug}/install-command | GET | None | ✅ NEW | http_install_command_returns_command, http_install_command_nonexistent_returns_404 |
+
+## Package Metadata Fields
+- slug ✅
+- name ✅ (extracted from .mcm content JSON)
+- version ✅
+- description ✅ (extracted from .mcm content JSON)
+- owner ✅
+- updated_at ✅
+- created_at ✅ (was in DB, now exposed)
+- sha256 ✅ (computed from blob at publish/update time)
+- size_bytes ✅ (computed from blob at publish/update time)
+- install_command ✅ (computed: curl -fsSL https://mc.dyyapp.com/install/pkg/<slug> | bash)
+
+## Validations Implemented
+- Slug validation: [a-z0-9-], 1-64 chars, no consecutive hyphens, not reserved (via validate_package_name)
+- Owner check: only owner can update/delete (403 Forbidden)
+- Daily push limit: 1 push/day per user (429 Too Many Requests)
+- Max 5 packages per user (409 Conflict)
+- Delete reservation: 2-day slug reservation for deleting owner
+- Install-only validation: rejects actions, launch, local fields (400 Bad Request)
+- Body limit: 10MB (413 Payload Too Large)
+- Content-Type: application/json required (415 Unsupported Media Type)
+
+## Files Modified
+1. src/server/storage/meta.rs - DB schema + PackageRow + queries + list_by_owner + migration
+2. src/server/storage/helpers.rs - validate_install_only + ContentMetadata return type
+3. src/server/storage/mod.rs - PackageMeta expansion + list_by_owner + publish/update metadata
+4. src/server/share.rs - mine_packages + install_command handlers + routes + is_validation_error
+5. tests/server_storage.rs - 11 new tests
+
+## Test Results
+- cargo test --lib -- server::storage: 8 passed (all helpers tests including 5 new)
+- cargo test --test server_storage: 25 passed (14 existing + 11 new)
+- cargo test --test server: 13 passed (no regressions)
+- cargo clippy --all-targets --all-features: CLEAN (pre-existing warnings from Task 4's auth/login.rs excluded)
+
+## New Tests Added (11 total)
+1. storage_list_by_owner_filters_correctly - storage-level owner filtering
+2. storage_metadata_includes_all_fields - all PackageMeta fields populated
+3. http_mine_returns_only_owner_packages - mine returns owner's packages
+4. http_mine_without_auth_returns_401 - mine requires auth
+5. http_mine_only_shows_own_packages - cross-owner isolation via HTTP
+6. http_install_command_returns_command - returns curl-bash command
+7. http_install_command_nonexistent_returns_404 - missing slug → 404
+8. http_list_returns_enhanced_metadata - full metadata in list response
+9. http_publish_rejects_actions - actions field rejected
+10. http_publish_rejects_launch - launch field rejected
+11. http_publish_rejects_local - local field rejected

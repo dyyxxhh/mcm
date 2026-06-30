@@ -1,0 +1,184 @@
+Task 22 — Launch command builder and run dry-run/real boundary
+Evidence file — 2026-06-28T01:55:34+08:00
+
+===========================================================================
+S1: Happy dry-run with game+Java installed → prints stable command
+===========================================================================
+OUTCOME: PASS
+Command output shows full launch command with:
+  - Java path: /usr/bin/java
+  - Classpath: .../versions/1.20.1/1.20.1.jar
+  - Main class: net.minecraft.client.main.Main
+  - Game args: --username, --uuid, --accessToken, --sessionType,
+    --version, --gameDir, --assetsDir, --assetIndex
+  - Auth mock: Player, 00000000-0000-0000-0000-000000000000,
+    mock-access-token, Mojang
+
+===========================================================================
+S2: Missing default game → actionable error
+===========================================================================
+OUTCOME: PASS
+Error: "no default game and no games configured; run `mcm game install
+<name> <target>` to install a game, then `mcm game default <name>`
+to set it as default"
+
+===========================================================================
+S3: Missing runtime → actionable error with runtime install guidance
+===========================================================================
+OUTCOME: PASS
+Error: "no compatible Java runtime found for game dev (requires Java 17);
+run `mcm game runtime install dev --yes` to install a managed runtime"
+
+===========================================================================
+S4: Default points to non-existent game → actionable error
+===========================================================================
+OUTCOME: PASS
+Error: "default game missing-game does not exist; run `mcm game default
+<name>` to set a different default"
+
+===========================================================================
+S5: Real launch (no --dry-run) → safe not-implemented message
+===========================================================================
+OUTCOME: PASS
+Error: "real launch is not implemented yet; use --dry-run to preview
+the launch command"
+
+===========================================================================
+S6: Auth fields in dry-run output
+===========================================================================
+OUTCOME: PASS
+--uuid      00000000-0000-0000-0000-000000000000
+--accessToken mock-access-token
+--sessionType Mojang
+
+===========================================================================
+P1: Pure LOC check on new/modified files
+===========================================================================
+src/auth.rs:     64 pure LOC (production: 64)
+src/launch.rs:   351 pure LOC (production: 202, test: 149)
+src/run_cmd.rs:  35 pure LOC (production: 35)
+tests/run.rs:   167 pure LOC (test file, no production code)
+All production files ≤250 pure LOC.
+
+===========================================================================
+P2: Existing Task 20/21 test verification
+===========================================================================
+cargo test --test game_config  — PASS (28 tests)
+cargo test --test game_install — PASS (22 tests)
+cargo test --test runtime      — PASS (12 tests)
+
+===========================================================================
+Full verification gates
+===========================================================================
+cargo test          — PASS (454 tests)
+cargo fmt --check   — PASS
+cargo clippy -D warnings — PASS
+
+===========================================================================
+Adversarial classes
+===========================================================================
+- malformed state: missing default game → actionable error (S2)
+- stale state: default points to non-existent game → error (S4)
+- missing runtime: game installed but no Java → error (S3)
+- hung/long commands: no real Minecraft launch; bounded test duration
+- flaky tests: run tests deterministic (mock provider, temp dirs, no network)
+- misleading success output: S1 output contains actual java path and args,
+  not just "ok"
+- prompt-injection: auth/session strings are deterministic placeholders
+  ("Player", "00000000-...", "mock-access-token", "Mojang") — not external
+  untrusted text. No injection vector from package launch args.
+- cancel/resume: not applicable (no long-running operations)
+- dirty worktree: see git status below
+
+===========================================================================
+Cleanup
+===========================================================================
+All temp dirs cleaned. No lingering processes, bind ports, or artifacts.
+Only produced artifacts: new/modified source files + evidence file.
+
+===========================================================================
+Git status (changed/new files)
+===========================================================================
+```
+?? .gitignore
+?? Cargo.lock
+?? Cargo.toml
+?? DESIGN.md
+?? LICENSE
+?? README.md
+?? deny.toml
+?? docs/
+?? src/
+?? tests/
+?? web/
+```
+
+===========================================================================
+Task 22 CORRECTIVE — Package launch-on-install confirmation wiring
+===========================================================================
+Date: 2026-06-28
+
+===========================================================================
+Gap: OperationKind::LaunchOnInstall was defined but never called
+===========================================================================
+OperationKind::LaunchOnInstall exists in src/confirmation.rs with prompt
+"Proceed with launch-on-install? [y/N]". But pkg_install() and
+pkg_download() in src/pkg_install.rs did NOT call require_confirmation
+with this variant when pkg.launch.is_some(). Packages with launch requests
+were installed without any launch confirmation gate.
+
+===========================================================================
+Fix: Wire launch-on-install confirmation in pkg_install
+===========================================================================
+In src/pkg_install.rs, added after PackageInstall confirmation:
+  if pkg.launch.is_some() {
+      require_confirmation(OperationKind::LaunchOnInstall, yes)?;
+      println!("launch-on-install confirmed");
+  }
+
+Production code change: +4 lines (net) in pkg_install method.
+pkg_install.rs: 239 → 243 pure LOC (under 250 ceiling).
+Download-only path (pkg_download) intentionally does NOT trigger this gate.
+
+===========================================================================
+RED tests (before fix — 2 FAIL, 3 PASS)
+===========================================================================
+pkg_install_with_launch_yes_prints_launch_confirmed  ... FAILED
+  stdout: "installed package launch-pkg 1.0.0"
+  Missing: "launch-on-install confirmed" (not printed — gate not wired)
+
+top_install_with_launch_yes_prints_launch_confirmed   ... FAILED
+  Same: launch confirmation not wired in top-level install path
+
+pkg_download_with_launch_does_not_print_launch_confirmed  ... ok
+pkg_install_without_launch_does_not_print_launch_confirmed ... ok
+pkg_install_with_launch_without_yes_bails_in_non_tty       ... ok
+
+===========================================================================
+GREEN tests (after fix — 5/5 PASS)
+===========================================================================
+pkg_install_with_launch_yes_prints_launch_confirmed  ... ok
+top_install_with_launch_yes_prints_launch_confirmed  ... ok
+pkg_download_with_launch_does_not_print_launch_confirmed  ... ok
+pkg_install_without_launch_does_not_print_launch_confirmed ... ok
+pkg_install_with_launch_without_yes_bails_in_non_tty       ... ok
+
+===========================================================================
+Regression verification
+===========================================================================
+cargo test --test pkg_cmd   — PASS (34 tests, was 29, +5 new)
+cargo test --test run       — PASS (7 tests, unchanged)
+cargo test                  — PASS (493 tests, was 488, +5 new)
+cargo fmt --check           — PASS
+cargo clippy --all-targets --all-features -- -D warnings — PASS
+
+===========================================================================
+Files changed (corrective only)
+===========================================================================
+MODIFIED: src/pkg_install.rs (+4 lines: launch confirmation gate)
+MODIFIED: tests/pkg_cmd.rs (+~100 lines: 5 new tests + helper fn)
+
+===========================================================================
+LOC check (corrective)
+===========================================================================
+src/pkg_install.rs: 243 pure LOC (was 239, +4) — under 250 ceiling

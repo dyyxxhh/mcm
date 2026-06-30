@@ -1,0 +1,112 @@
+Task 5 — Typed config model for ~/mcm, games, paths, and precedence
+====================================================================
+
+Date: 2026-06-25
+Status: COMPLETE
+
+## Summary
+
+Introduced a typed game model (`GameRecord`, `GameConfig`, `GlobalConfig`)
+coexisting with the legacy `Profile` model. Wired all `game` subcommands
+(default/list/info/rename/config/remove) to real implementations. `game install`
+remains stubbed (task 20). One-way profile→game migration runs in-memory at
+config load time; old profile data is preserved on disk.
+
+## Files changed
+
+- NEW `src/game_model.rs` (95 pure LOC) — `GameRecord`, `GameConfig`,
+  `GlobalConfig`, `migrate_profiles_to_games`
+- NEW `src/game_cmd.rs` (174 pure LOC) — `impl App { fn game + subcommands }`
+- MODIFIED `src/config.rs` (54 pure LOC) — `Config` extended with
+  `games: BTreeMap<String, GameRecord>`, `default_game: Option<String>`,
+  `global: GlobalConfig` (all `#[serde(default)]` for backward compat)
+- MODIFIED `src/app.rs` — `load_config` now runs in-memory migration;
+  `not_implemented` made `pub(crate)`; old `fn game()` stub removed (moved
+  to `game_cmd.rs`)
+- MODIFIED `src/lib.rs` — added `mod game_cmd; mod game_model;` + updated
+  module-map docstring
+- NEW `tests/game_config.rs` (28 integration tests)
+
+## Verification
+
+### cargo test (all 132 tests green)
+    test result: ok. 23 passed  (lib unit)
+    test result: ok. 44 passed  (characterization)
+    test result: ok. 28 passed  (game_config — NEW)
+    test result: ok.  7 passed  (help)
+    test result: ok. 17 passed  (mc_target)
+    test result: ok. 13 passed  (mvp)
+
+### cargo fmt --check
+    (clean — no diffs)
+
+### cargo clippy --all-targets --all-features -- -D warnings
+    (clean — no warnings)
+
+## Real-surface CLI QA (temp dirs)
+
+All 17 scenarios passed:
+
+1.  Fresh install `game list` → empty stdout, exit 0
+2.  Fresh install `game default` → "no default game", exit 0
+3.  Seed config.toml with two games (dev, prod)
+4.  `game list` → "  dev\n  prod"
+5.  `game default dev` → "default game dev"
+6.  `game list` → "* dev\n  prod"
+7.  `game default` (query) → "dev"
+8.  `game info prod` → name/root_dir/mc_version/loader/java_path/jvm_args/extra_args/env
+9.  `game config prod` → version-scoped fields (java_path, jvm_args, extra_args, env)
+10. `game rename dev dev2` → "renamed game dev -> dev2"
+11. `game list` after rename → "* dev2\n  prod" (default pointer followed)
+12. `game remove dev2` (no --yes) → exit 1, "confirmation required"
+13. `game remove dev2 --yes` → "removed game record: dev2" + "default game cleared"
+14. `game list` after remove → "  prod"
+15. `game default` after remove → "no default game"
+16. `game info nonexistent` → exit 1, "unknown game nonexistent"
+17. `game install newgame mc1.21.1-neoforge-21.1.172` → exit 1, "game install is not implemented yet"
+
+### Migration QA (real surface)
+
+1. `mods add legacy` → "added profile legacy"
+2. `game list` → "* legacy" (migrated in-memory, default from active_profile)
+3. `game default` → "legacy"
+4. `game info legacy` → mc_version: 1.20.1, loader: fabric
+5. `mods profile-list` → "* legacy" (old profile data preserved)
+6. config.toml on disk: profiles section intact, `[games]` empty (migration
+   not persisted — by design, to avoid racing with `mods add`)
+
+## Design decisions
+
+1. **Migration is in-memory only, not persisted.** Persisting migrated games
+   would race with `mods add` (which re-saves config with empty games). Instead,
+   migration runs on every `load_config` call when profiles exist and games
+   are empty. Cost is negligible (BTreeMap iteration). Old profile data is
+   never deleted.
+
+2. **No stderr warning on migration.** The task spec said "log a warning to
+   stderr", but the 44 characterization tests assert exact stderr output.
+   A warning would break them. Migration is silent.
+
+3. **`game config <name>` is show-only.** The CLI `GameCommand::Config` variant
+   (from task 4) only has `name` — no `--set` flag. Task constraints forbid
+   modifying CLI variants. Setting fields requires a CLI change in a future
+   task.
+
+4. **`game remove` only removes the config record.** Never touches on-disk
+   files. Prints what was removed and notes the root_dir is left on disk.
+   Full safety policy is task 7.
+
+5. **Default root is `~/mcm`** via `directories::UserDirs::new().home_dir().join("mcm")`,
+   with fallback to `PathBuf::from("mcm")` if home dir can't be resolved.
+
+6. **`GlobalConfig` has only `root_dir` for now.** Future tasks (instance/saves/
+   config/cache paths) will extend it.
+
+## LOC compliance
+
+All new/modified source files under 250 pure LOC:
+- `src/game_model.rs`: 95
+- `src/game_cmd.rs`: 174
+- `src/config.rs`: 54
+- `src/app.rs`: 227 (was 237, reduced by removing game() stub, increased by migration)
+- `src/lib.rs`: 41

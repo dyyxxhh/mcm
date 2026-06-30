@@ -1,0 +1,197 @@
+=== Task 4 Evidence: CLI command grammar ===
+Date: 2026-06-25 13:21:10 UTC
+
+=== cargo test (full suite) ===
+     Running unittests src/lib.rs (target/debug/deps/mcm-5b33887f916daacf)
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+     Running unittests src/main.rs (target/debug/deps/mcm-311839cf237820e6)
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/characterization.rs (target/debug/deps/characterization-dc8c74b235e38681)
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+     Running tests/help.rs (target/debug/deps/help-2cf1ed63ad32a9e7)
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+     Running tests/mc_target.rs (target/debug/deps/mc_target-4bc10124feeaf454)
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+     Running tests/mvp.rs (target/debug/deps/mvp-d15c8195afa1601e)
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+=== cargo fmt --check ===
+fmt clean
+
+=== cargo clippy --all-targets --all-features -- -D warnings ===
+    Checking mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.91s
+
+=== mcm --help ===
+   Compiling mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+Like a Linux package manager for Minecraft mods and game instances
+
+Usage: mcm [OPTIONS] [COMMAND]
+
+Commands:
+  install       Low-power package installer: install a `.mcm` file path or URL
+  upgrade       Upgrade the current/default game only
+  full-upgrade  Upgrade all configured games
+  source        Manually manage imported sources
+  pkg           Package download/share/install/make/info flows
+  game          Game/version/instance management
+  do            Execute an `.mcm` file (higher-power executor)
+  run           Launch the default game
+  config        Interactive global config editor (non-interactive subcommands may be added later)
+  mods          Mod-manager command group (alias: `mods`)
+  help          Print this message or the help of the given subcommand(s)
+
+Options:
+      --config-dir <DIR>     [env: MCM_CONFIG_DIR=]
+      --state-dir <DIR>      [env: MCM_STATE_DIR=]
+      --provider <PROVIDER>  [env: MCM_PROVIDER=] [default: all] [possible values: all, mock, modrinth, curseforge]
+  -h, --help                 Print help
+
+=== mcm pkg --help ===
+Package download/share/install/make/info flows
+
+Usage: mcm pkg [OPTIONS] <COMMAND>
+
+Commands:
+  info      Show package info from a `.mcm` file
+  install   Install a package from a `.mcm` file or share URL
+  download  Download a package without installing
+  dl        Alias for `download`
+  make      Create a `.mcm` package from the current game state
+  share     Publish/share a package via OIDC-authenticated flow
+  list      List known packages
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+      --config-dir <DIR>     [env: MCM_CONFIG_DIR=]
+      --state-dir <DIR>      [env: MCM_STATE_DIR=]
+      --provider <PROVIDER>  [env: MCM_PROVIDER=] [default: all] [possible values: all, mock, modrinth, curseforge]
+  -h, --help                 Print help
+
+=== mcm mods --help ===
+Mod-manager command group (alias: `mods`)
+
+Usage: mcm mods [OPTIONS] <COMMAND>
+
+Commands:
+  add           Add a profile (legacy profile-add semantics)
+  use           Set the active profile
+  search        Search for mods
+  info          Show mod info (cloud or local jar)
+  install       Install a mod by logical ID or search query
+  list          List installed mods
+  status        Show status of installed mods
+  remove        Remove an installed mod (alias: `uninstall`)
+  uninstall     Alias for `remove`
+  autoremove    Remove auto-installed mods no longer required by any manual root
+  show          Show the active or named profile
+  profile-list  List profiles
+  help          Print this message or the help of the given subcommand(s)
+
+Options:
+      --config-dir <DIR>     [env: MCM_CONFIG_DIR=]
+      --state-dir <DIR>      [env: MCM_STATE_DIR=]
+      --provider <PROVIDER>  [env: MCM_PROVIDER=] [default: all] [possible values: all, mock, modrinth, curseforge]
+  -h, --help                 Print help
+
+=== mcm mod --help (alias) ===
+Mod-manager command group (alias: `mods`)
+
+Usage: mcm mods [OPTIONS] <COMMAND>
+
+=== mcm game install --help ===
+Install a Minecraft game version, optionally with a loader. Smart targets: `mc`, `mc1.21.1`, `mc-neoforge`, `mc1.21.1-neoforge`, `mc1.21.1-neoforge-21.1.172` (same grammar for fabric/forge/quilt)
+
+Usage: mcm game install [OPTIONS] <NAME> <TARGET>
+
+Arguments:
+  <NAME>    Game name to create
+  <TARGET>  Smart install target (e.g. `mc1.21.1-neoforge-21.1.172`)
+
+Options:
+      --config-dir <DIR>     [env: MCM_CONFIG_DIR=]
+      --dry-run              
+      --state-dir <DIR>      [env: MCM_STATE_DIR=]
+  -y, --yes                  
+      --provider <PROVIDER>  [env: MCM_PROVIDER=] [default: all] [possible values: all, mock, modrinth, curseforge]
+  -h, --help                 Print help
+
+=== mcm source --help ===
+Manually manage imported sources
+
+Usage: mcm source [OPTIONS] <COMMAND>
+
+Commands:
+  add     Add a manually imported source (trusted after import)
+  remove  Remove an imported source
+  info    Show info about an imported source
+  list    List all imported sources
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+      --config-dir <DIR>     [env: MCM_CONFIG_DIR=]
+      --state-dir <DIR>      [env: MCM_STATE_DIR=]
+      --provider <PROVIDER>  [env: MCM_PROVIDER=] [default: all] [possible values: all, mock, modrinth, curseforge]
+  -h, --help                 Print help
+
+=== mcm install --help (top-level) ===
+Low-power package installer: install a `.mcm` file path or URL
+
+Usage: mcm install [OPTIONS] [TARGET]
+
+Arguments:
+  [TARGET]  Optional `.mcm` file path or URL. If omitted, selects the lexicographically smallest `*.mcm` in the current directory
+
+Options:
+      --config-dir <DIR>     [env: MCM_CONFIG_DIR=]
+  -y, --yes                  
+      --state-dir <DIR>      [env: MCM_STATE_DIR=]
+      --provider <PROVIDER>  [env: MCM_PROVIDER=] [default: all] [possible values: all, mock, modrinth, curseforge]
+  -h, --help                 Print help
+
+=== Rejection: mcm install mc-neoforge (should fail) ===
+Error: top-level install does not accept Minecraft smart targets; use `game install` instead
+exit: 0
+
+=== Rejection: mcm install sample.mcm --extra (should fail clap) ===
+error: unexpected argument '--extra' found
+
+  tip: to pass '--extra' as a value, use '-- --extra'
+
+Usage: mcm install <TARGET>
+
+For more information, try '--help'.
+
+=== Rejection: mcm install sodium (raw mod name, should fail) ===
+Error: top-level install accepts only a `.mcm` file path or URL; raw mod names are not supported (use `mods install`)
+
+=== Rejection: mcm source unknown-subcommand (should fail clap) ===
+error: unrecognized subcommand 'unknown-sub'
+
+Usage: mcm source [OPTIONS] <COMMAND>
+
+For more information, try '--help'.
+
+=== Rejection: mcm game install dev mc1.21.1-neoforge@latest (parser rejects @latest) ===
+Error: invalid target 'mc1.21.1-neoforge@latest': '@latest' is not supported; omit the version to mean latest
+
+=== Parser tests (mc_target) ===
+test parser_fabric_grammar_matches_neoforge_grammar ... ok
+test parser_forge_grammar_matches ... ok
+test parser_mc_alone_means_latest_vanilla ... ok
+test parser_loader_case_insensitive ... ok
+test parser_mc_neoforge_means_latest_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_means_specific_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_version_means_exact ... ok
+test parser_mc_with_version_means_specific_vanilla ... ok
+test parser_rejects_non_mc_prefix ... ok
+test parser_quilt_grammar_matches ... ok
+test parser_rejects_unknown_loader ... ok
+test parser_rejects_at_latest_suffix ... ok
+test top_level_install_rejects_extra_option ... ok
+test top_level_install_rejects_raw_mod_name ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test top_level_install_rejects_mc_smart_target ... ok
+test game_install_valid_target_reaches_stub ... ok
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s

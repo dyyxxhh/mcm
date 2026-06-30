@@ -1,0 +1,89 @@
+## Task 6 — Production PM2 and public route deployment verification
+
+**Date:** 2026-06-28
+**Status:** COMPLETE
+**Verification:** PM2 restart + curl smoke suite all pass; secrets redacted.
+
+### Files touched
+- NEW: `ecosystem.config.js` — PM2 ecosystem config with secret placeholders
+- MODIFIED: `README.md` — expanded PM2 deployment section with start/restart/rollback commands
+
+### PM2 process state (before restart)
+
+```
+script path  : /path/to/mcm/target/release/mcm
+script args  : serve --mode share --bind 0.0.0.0:8950
+exec cwd     : /path/to/project/dyyl
+interpreter  : none
+env keys     : MCM_SHARE_DATA_DIR
+status       : online
+restarts     : 3
+uptime       : 5h
+```
+
+### PM2 process state (after restart)
+
+```
+script path  : /path/to/mcm/target/release/mcm
+script args  : serve --mode share --bind 0.0.0.0:8950
+exec cwd     : /path/to/project/dyyl
+interpreter  : none
+env keys     : MCM_SHARE_DATA_DIR
+status       : online
+restarts     : 4
+uptime       : 3s (just restarted)
+```
+
+### Restart command used
+```bash
+pm2 restart mcm
+```
+
+### Curl smoke suite (after restart)
+
+| Route | Status | Body |
+|-------|--------|------|
+| `GET /` | 404 | `{"error":"not found"}` — expected (no static index in share-only mode) |
+| `GET /health` | 200 | `{"mode":"share","status":"ok"}` |
+| `GET /api/share/list` | 200 | `{"packages":[]}` |
+| `GET /api/auth/oidc/start` | 200 | `{"auth_url":"...","mock_user":"mock-user","state":"..."}` |
+| `GET /install` | 200 | `text/x-shellscript` — MCM bootstrap installer script (6109 bytes) |
+| `GET /install/pkg/test-pkg` | 404 | `{"error":"package not found","slug":"test-pkg"}` — expected for nonexistent package |
+
+### Rollback commands (documented in README)
+```bash
+pm2 stop mcm
+# Restore previous binary
+pm2 start ecosystem.config.js
+# or:
+pm2 restart mcm
+```
+
+### Secret redaction verification
+
+- `ecosystem.config.js` contains only placeholder comments for secrets:
+  - `// MCM_OIDC_CLIENT_SECRET: provide via env or secret file, never commit.`
+- No real secret values appear in the evidence file or ecosystem config.
+- `pm2 env 20` output shows only `MCM_SHARE_DATA_DIR` as the mcm-specific env key.
+- No `MCM_OIDC_*` keys are present in the live process (running in mock mode).
+
+### Route behavior notes
+
+1. **`GET /`** returns 404 in share-only mode — the SPA fallback only serves when web files are present in the configured `web_dir`. For production, the reverse proxy serves the static site.
+2. **`GET /health`** always returns `{"status":"ok","mode":"share"}` — the canonical health check.
+3. **`GET /api/share/list`** returns the package list — currently empty on this instance.
+4. **`GET /api/auth/oidc/start`** returns a mock auth URL because `MCM_AUTH_MODE` is not set to `real`. In production with OIDC env vars, it would return a real OIDC authorize URL.
+5. **`GET /install`** returns the full bootstrap shell script for installing/updating MCM.
+6. **`GET /install/pkg/{slug}`** returns 404 for nonexistent slugs — confirms the route is wired correctly.
+
+### Deployment architecture summary
+
+```
+Internet → Reverse Proxy (nginx/Caddy, TLS) → 0.0.0.0:8950 → PM2 (mcm serve --mode share)
+                                                                    ├── /health
+                                                                    ├── /install
+                                                                    ├── /install/pkg/{slug}
+                                                                    ├── /api/auth/oidc/*
+                                                                    ├── /api/share/*
+                                                                    └── /release/{filename}
+```

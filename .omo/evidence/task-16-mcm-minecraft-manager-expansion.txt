@@ -1,0 +1,1644 @@
+## Task 16 evidence
+
+### getdesign
+2026年 06月 27日 星期六 03:56:08 UTC
+
+  [97m ██████╗ ███████╗████████╗[0m
+  [97m██╔════╝ ██╔════╝╚══██╔══╝[0m
+  [97m██║  ███╗█████╗     ██║   [0m
+  [97m██║   ██║██╔══╝     ██║   [0m
+  [97m╚██████╔╝███████╗   ██║   [0m
+  [97m ╚═════╝ ╚══════╝   ╚═╝   [0m
+  [38;2;255;177;238m██████╗ ███████╗███████╗██╗ ██████╗ ███╗   ██╗[0m[97m   ███╗   ███╗██████╗ [0m
+  [38;2;255;177;238m██╔══██╗██╔════╝██╔════╝██║██╔════╝ ████╗  ██║[0m[97m   ████╗ ████║██╔══██╗[0m
+  [38;2;255;177;238m██║  ██║█████╗  ███████╗██║██║  ███╗██╔██╗ ██║[0m[97m   ██╔████╔██║██║  ██║[0m
+  [38;2;255;177;238m██║  ██║██╔══╝  ╚════██║██║██║   ██║██║╚██╗██║[0m[97m   ██║╚██╔╝██║██║  ██║[0m
+  [38;2;255;177;238m██████╔╝███████╗███████║██║╚██████╔╝██║ ╚████║[0m[97m██╗██║ ╚═╝ ██║██████╔╝[0m
+  [38;2;255;177;238m╚═════╝ ╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝[0m[97m╚═╝╚═╝     ╚═╝╚═════╝ [0m
+
+  [32m✓[0m DESIGN.md inspired by [97mollama[0m saved
+    [2m→ ../ollama/DESIGN.md[0m
+
+  [38;2;160;160;160mDESIGN.md already exists at root. To make this one active:[0m
+  [2mcp ollama/DESIGN.md ./DESIGN.md[0m
+
+  [38;2;160;160;160mTell your coding agent to use this file as[0m
+  [38;2;160;160;160mreference before writing any UI.[0m
+  [38;2;160;160;160mCustomize it as your project evolves.[0m
+
+
+### cargo test server_auth server_storage server -- --nocapture
+/bin/bash: 行 1: cargo: 未找到命令
+
+### cargo test
+/bin/bash: 行 1: cargo: 未找到命令
+
+### cargo fmt --check
+/bin/bash: 行 1: cargo: 未找到命令
+
+### cargo clippy --all-targets --all-features -- -D warnings
+/bin/bash: 行 1: cargo: 未找到命令
+
+### static policy grep
+Turnstile: none
+turnstile: none
+admin token: none
+admin-token: none
+admin_token: none
+emoji codepoints: none
+
+### cargo path retry setup
+/home/usr/.cargo/bin/cargo
+cargo 1.96.0 (30a34c682 2026-05-25)
+
+### lsp diagnostics
+lsp_diagnostics tool unavailable/connection closed for src/server/mod.rs and web/app.js; using compiler/clippy/browser checks instead.
+
+### cargo test server_auth server_storage server -- --nocapture (retry with cargo env)
+error: unexpected argument 'server_storage' found
+
+Usage: cargo test [OPTIONS] [TESTNAME] [-- [ARGS]...]
+
+For more information, try '--help'.
+
+### cargo test (retry with cargo env)
+   Compiling mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 49s
+     Running unittests src/lib.rs (target/debug/deps/mcm-d4a8c3caa31b5c78)
+
+running 64 tests
+test confirmation::tests::is_mc_critical_flags_autoremove_world_ops ... ok
+test confirmation::tests::classify_actionable_ops_are_bypassable ... ok
+test confirmation::tests::classify_root_system_change_is_non_bypassable ... ok
+test confirmation::tests::require_confirmation_bypassable_with_yes_succeeds_without_tty ... ok
+test confirmation::tests::classify_harmless_ops_dont_exist_in_enum ... ok
+test confirmation::tests::autoremove_warning_contains_required_phrases ... ok
+test confirmation::tests::require_confirmation_non_bypassable_bails_in_non_tty_even_with_yes ... ok
+test confirmation::tests::require_confirmation_bypassable_without_yes_bails_in_non_tty ... ok
+test confirmation::tests::root_escalation_helper_non_interactive_bails_with_sudo_command ... ok
+test install::tests::composite_provider_merges_projects_from_multiple_sources ... ok
+test install::tests::build_plan_records_resolved_dependency_logical_id_for_reachability ... ok
+test install::tests::select_artifact_uses_numeric_versions_and_download_count_tiebreaker ... ok
+test mc_target::tests::at_latest_suffix_is_rejected ... ok
+test mc_target::tests::loader_case_insensitive ... ok
+test mc_target::tests::mc_alone_means_latest_vanilla ... ok
+test jar_info::tests::mcmod_info_fields_are_read_from_generated_zip ... ok
+test mc_target::tests::mc_loader_means_latest_mc_latest_loader ... ok
+test mc_target::tests::mc_version_loader_means_specific_mc_latest_loader ... ok
+test mc_target::tests::mc_version_loader_version_means_exact ... ok
+test mc_target::tests::mc_with_version_means_specific_vanilla ... ok
+test mc_target::tests::non_mc_prefix_is_rejected ... ok
+test mc_target::tests::unknown_loader_is_rejected ... ok
+test provider::curseforge::tests::curseforge_json_mapping_preserves_slug_files_hashes_and_dependencies ... ok
+test provider::modrinth::tests::modrinth_json_mapping_preserves_project_artifacts_dependencies_and_release_types ... ok
+test safety::tests::sanitize_filename_rejects_null_drive_and_reserved_names ... ok
+test safety::tests::sanitize_filename_rejects_traversal_and_non_jars ... ok
+test safety::tests::validate_download_url_allowlists_only_known_cdn_hosts ... ok
+test provider::curseforge::tests::curseforge_download_refuses_when_url_host_not_allowlisted ... ok
+test provider::curseforge::tests::curseforge_download_sends_api_key_header_to_allowlisted_cdn ... ok
+test safety::tests::validate_download_url_requires_https_and_rejects_private_hosts ... ok
+test server::config::tests::both_mode_enables_both ... ok
+test server::config::tests::parse_mode_roundtrips ... ok
+test server::config::tests::secret_string_debug_is_redacted ... ok
+test server::config::tests::server_config_debug_redacts_secret ... ok
+test server::config::tests::share_mode_enables_share_only ... ok
+test server::config::tests::source_mode_enables_source_only ... ok
+test server::source_store::tests::get_blob_reads_file ... ok
+test server::source_store::tests::get_blob_returns_none_when_absent ... ok
+test server::source_store::tests::get_index_parses_valid_file ... ok
+test server::source_store::tests::get_index_returns_none_when_file_absent ... ok
+test server::source_store::tests::get_package_finds_by_id ... ok
+test server::source_store::tests::get_package_returns_none_for_unknown_slug ... ok
+test server::source_store::tests::sanitize_rejects_traversal ... ok
+test server::storage::helpers::tests::normalize_slug_lowercases_and_validates ... ok
+test server::storage::helpers::tests::refuse_under_x_rejects_x_paths ... ok
+test server::storage::helpers::tests::validate_payload_rejects_secrets ... ok
+test source_index::tests::parses_valid_full_index_with_capabilities_and_actions ... ok
+test source_index::tests::parses_valid_minimal_index ... ok
+test source_index::tests::rejects_excessive_depth ... ok
+test source_index::tests::rejects_invalid_source_id_consecutive_hyphens ... ok
+test source_index::tests::rejects_invalid_source_id_uppercase ... ok
+test source_index::tests::rejects_malformed_json ... ok
+test source_index::tests::rejects_missing_required_fields ... ok
+test source_index::tests::rejects_secret_field_at_top_level ... ok
+test source_index::tests::rejects_secret_field_nested_in_package ... ok
+test source_index::tests::rejects_unknown_schema_version ... ok
+test source_index::tests::validates_source_id_boundary_cases ... ok
+test source_resolve::tests::find_package_returns_none_for_empty ... ok
+test source_resolve::tests::find_package_returns_none_when_no_versions ... ok
+test source_resolve::tests::find_package_synthesizes_mcm_with_external_url ... ok
+test source_resolve::tests::find_package_uses_blob_ref_when_no_download_url ... ok
+test source_index::tests::rejects_oversized_index ... ok
+test provider::curseforge::tests::curseforge_http_client_does_not_follow_redirects_with_api_key_headers ... ok
+test provider::curseforge::tests::modrinth_http_client_does_not_follow_redirects_after_url_validation ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.35s
+
+     Running unittests src/main.rs (target/debug/deps/mcm-3b732008190f76d3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/characterization.rs (target/debug/deps/characterization-11184613c63ad9d3)
+
+running 44 tests
+test info_cloud_without_active_profile_errors ... ok
+test install_dry_run_prints_plan_without_writing_jars ... ok
+test cloud_info_for_standalone_has_no_dep_lines ... ok
+test cloud_info_prints_selected_artifact_and_all_dependency_kinds ... ok
+test cloud_info_for_brokenmod_succeeds_without_download_url ... ok
+test autoremove_keeps_required_dep_while_manual_root_still_needs_it ... ok
+test autoremove_nothing_to_do_is_silent_success ... ok
+test install_file_missing_errors_on_read ... ok
+test install_file_parses_comments_and_blank_lines_into_one_plan ... ok
+test install_missing_download_url_errors_and_leaves_no_partial_jar ... ok
+test install_rootmod_emits_all_four_warning_kinds_in_order ... ok
+test autoremove_requires_yes_when_removable ... ok
+test install_search_query_not_found_errors ... ok
+test install_without_query_or_file_errors ... ok
+test list_without_active_profile_errors_with_actionable_message ... ok
+test list_empty_is_silent_success ... ok
+test local_jar_info_reads_fabric_mod_json_id_and_version ... ok
+test local_jar_info_nonexistent_jar_path_errors_on_read ... ok
+test local_jar_info_falls_back_to_hash_when_metadata_unavailable ... ok
+test local_jar_info_reads_mcmod_info_array_fields ... ok
+test local_jar_info_reads_mods_toml_modid_and_version_lines ... ok
+test local_jar_info_zip_without_known_metadata_reports_unavailable ... ok
+test profile_list_empty_is_silent_success ... ok
+test list_prints_installed_mods_alphabetically_with_reason_and_identity ... ok
+test profile_add_defaults_side_to_both_and_show_uses_debug_format ... ok
+test profile_add_sets_new_profile_active_and_creates_mods_dir ... ok
+test profile_show_named_unknown_errors ... ok
+test profile_use_unknown_profile_errors ... ok
+test provider_curseforge_info_also_requires_api_key ... ok
+test provider_curseforge_requires_api_key_env ... ok
+test provider_mock_works_offline_for_search ... ok
+test remove_unknown_mod_errors ... ok
+test search_groups_duplicate_candidates_by_logical_id ... ok
+test search_matches_title_substring_case_insensitively ... ok
+test profile_use_switches_active_and_list_marks_active_with_star ... ok
+test search_without_active_profile_errors ... ok
+test remove_requires_yes_flag ... ok
+test remove_auto_dependency_is_rejected_with_autoremove_hint ... ok
+test search_no_match_is_silent_success ... ok
+test status_without_active_profile_errors ... ok
+test remove_manual_root_keeps_auto_required_dep_until_autoremove ... ok
+test status_reports_ok_for_intact_owned_jars ... ok
+test uninstall_is_alias_for_remove ... ok
+test status_reports_missing_and_changed_and_untracked_without_claiming_untracked ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.04s
+
+     Running tests/confirmation.rs (target/debug/deps/confirmation-75183900dd1a1447)
+
+running 21 tests
+test bypassable_game_remove_without_yes_bails ... ok
+test bypassable_install_with_yes_proceeds_without_prompt ... ok
+test bypassable_remove_with_yes_proceeds_without_prompt ... ok
+test game_remove_with_yes_proceeds ... ok
+test autoremove_nothing_to_do_does_not_emit_warning ... ok
+test bypassable_autoremove_without_yes_bails_in_non_tty ... ok
+test autoremove_without_yes_does_not_emit_warning_only_bails ... ok
+test autoremove_with_yes_emits_mc_critical_warning_to_stderr ... ok
+test bypassable_autoremove_with_yes_proceeds_without_prompt ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test install_interactive_prompt_accepts_y_from_stdin ... ok
+test bypassable_remove_without_yes_bails_in_non_tty ... ok
+test pkg_info_is_read_only_and_never_prompts ... ok
+test read_only_game_info_never_prompts ... ok
+test read_only_game_list_never_prompts ... ok
+test install_interactive_prompt_rejects_n_from_stdin ... ok
+test read_only_dry_run_never_prompts ... ok
+test read_only_info_never_prompts ... ok
+test read_only_list_never_prompts ... ok
+test read_only_search_never_prompts ... ok
+test read_only_status_never_prompts ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.44s
+
+     Running tests/download.rs (target/debug/deps/download-2ba7d6877b243106)
+
+running 6 tests
+test fetcher_trait_can_be_implemented_for_in_memory_bytes ... ok
+test permanent_hash_mismatch_deletes_part_and_errors ... ok
+test successful_download_writes_correct_file_with_hash_match ... ok
+test resume_continues_from_part_file_when_server_supports_206 ... ok
+test permanent_failure_always_500_leaves_no_finalized_file ... ok
+test flaky_server_fails_first_n_then_succeeds_on_retry ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/game_config.rs (target/debug/deps/game_config-8185f01d9cae2e9f)
+
+running 28 tests
+test game_config_shows_version_scoped_fields ... ok
+test game_config_unset_fields_show_unset ... ok
+test game_default_no_arg_no_default_prints_no_default_game ... ok
+test game_config_unknown_game_errors ... ok
+test game_default_set_unknown_game_errors ... ok
+test fresh_install_has_no_games_and_no_default ... ok
+test game_info_shows_root_version_loader_config_paths ... ok
+test game_default_set_persists_and_shows_in_list ... ok
+test game_info_unknown_game_errors ... ok
+test game_default_no_arg_with_default_prints_default_name ... ok
+test game_info_unset_mc_version_and_loader_shows_unset ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test game_list_empty_is_silent_success ... ok
+test game_install_valid_target_reaches_stub ... ok
+test game_list_no_default_shows_no_star ... ok
+test game_remove_unknown_game_errors ... ok
+test game_remove_without_yes_errors ... ok
+test game_list_marks_default_with_star ... ok
+test game_rename_to_existing_name_errors ... ok
+test game_remove_does_not_touch_unrelated_games ... ok
+test game_remove_with_yes_removes_record_and_leaves_disk ... ok
+test game_rename_unknown_old_errors ... ok
+test game_remove_default_clears_default_pointer ... ok
+test game_rename_does_not_touch_unrelated_games ... ok
+test migration_skipped_when_games_already_exist ... ok
+test migration_does_not_delete_old_profile_data ... ok
+test migration_profiles_appear_as_games_when_games_empty ... ok
+test game_rename_updates_config_and_default_pointer ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+
+     Running tests/help.rs (target/debug/deps/help-6b2d93ce219a8b28)
+
+running 7 tests
+test game_install_help_describes_smart_targets ... ok
+test mod_is_alias_for_mods ... ok
+test top_level_install_help_accepts_only_mcm_target_and_yes ... ok
+test mods_install_help_lists_file_option_for_mod_list ... ok
+test pkg_dl_is_alias_for_download ... ok
+test help_lists_all_top_level_commands_and_description ... ok
+test help_does_not_list_old_top_level_mod_manager_commands ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/mc_target.rs (target/debug/deps/mc_target-bc3d36fc0b9bfda7)
+
+running 17 tests
+test parser_fabric_grammar_matches_neoforge_grammar ... ok
+test parser_mc_alone_means_latest_vanilla ... ok
+test parser_forge_grammar_matches ... ok
+test parser_loader_case_insensitive ... ok
+test parser_mc_neoforge_means_latest_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_means_specific_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_version_means_exact ... ok
+test parser_mc_with_version_means_specific_vanilla ... ok
+test parser_quilt_grammar_matches ... ok
+test parser_rejects_at_latest_suffix ... ok
+test parser_rejects_non_mc_prefix ... ok
+test parser_rejects_unknown_loader ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test game_install_valid_target_reaches_stub ... ok
+test top_level_install_rejects_extra_option ... ok
+test top_level_install_rejects_mc_smart_target ... ok
+test top_level_install_rejects_raw_mod_name ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/mcm_package.rs (target/debug/deps/mcm_package-e532b1c9d1b3ae99)
+
+running 30 tests
+test parser_accepts_longest_valid_name ... ok
+test parser_accepts_nested_valid_asset_path ... ok
+test parser_accepts_package_with_all_optional_fields_present ... ok
+test parser_accepts_valid_full_package ... ok
+test parser_accepts_valid_minimal_package ... ok
+test parser_rejects_empty_package_object ... ok
+test parser_rejects_missing_required_fields ... ok
+test parser_rejects_excessive_nesting_depth ... ok
+test parser_rejects_missing_schema_version ... ok
+test parser_rejects_name_too_long ... ok
+test parser_rejects_name_with_consecutive_hyphens ... ok
+test parser_rejects_name_with_leading_trailing_hyphen ... ok
+test parser_rejects_nested_secret_field_case_insensitive ... ok
+test parser_rejects_path_traversal_in_asset ... ok
+test parser_rejects_reserved_name_mcm ... ok
+test parser_rejects_secret_in_array_element ... ok
+test parser_rejects_top_level_token_field ... ok
+test parser_rejects_unknown_schema_version ... ok
+test parser_rejects_uppercase_and_underscore_in_name ... ok
+test parser_rejects_windows_reserved_names ... ok
+test pkg_info_exits_nonzero_for_reserved_name ... ok
+test pkg_info_exits_nonzero_for_missing_file ... ok
+test parser_rejects_oversized_json ... ok
+test pkg_info_exits_nonzero_for_path_traversal_asset ... ok
+test pkg_info_exits_nonzero_for_secret_field ... ok
+test pkg_info_exits_nonzero_for_unknown_schema_version ... ok
+test pkg_info_prints_summary_for_valid_file ... ok
+test pkg_info_shows_local_present_when_local_field_set ... ok
+test pkg_list_is_no_longer_stubbed ... ok
+test pkg_install_is_no_longer_stubbed ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/modpack_import.rs (target/debug/deps/modpack_import-2db25a7396f89267)
+
+running 14 tests
+test curseforge_import_installs_overrides_and_warns_on_unresolvable_mods ... ok
+test mrpack_import_without_yes_bails ... ok
+test non_modpack_zip_rejected ... ok
+test mrpack_import_installs_mods_and_overrides ... ok
+test backslash_path_entry_rejected ... ok
+test mrpack_import_hash_mismatch_rejected ... ok
+test oversized_archive_rejected ... ok
+test absolute_path_entry_rejected ... ok
+test pkg_make_default_format_is_mcm ... ok
+test path_traversal_entry_rejected_no_partial_install ... ok
+test secret_field_in_mrpack_index_rejected ... ok
+test top_install_dispatches_to_mrpack_import ... ok
+test pkg_make_mrpack_writes_valid_mrpack ... ok
+test pkg_make_mrpack_round_trip_import ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s
+
+     Running tests/mvp.rs (target/debug/deps/mvp-df8f3a080f523f7b)
+
+running 13 tests
+test local_jar_info_falls_back_to_hash_without_fake_provider_identity ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test cloud_info_uses_profile_constraints_and_surfaces_optional_dependency ... ok
+test install_file_parses_comments_into_one_plan ... ok
+test curseforge_provider_requires_api_key ... ok
+test install_dry_run_does_not_write_jars ... ok
+test install_single_mod_installs_required_dependency_but_not_optional_or_beta ... ok
+test install_searches_query_first_and_yes_accepts_plan ... ok
+test missing_download_url_errors_without_partial_install ... ok
+test search_groups_same_logical_mod_across_provider_candidates_and_excludes_beta ... ok
+test profile_add_use_show_and_list_work_with_isolated_paths ... ok
+test remove_and_autoremove_preserve_required_deps_until_no_manual_roots_need_them ... ok
+test status_detects_missing_changed_and_untracked_jars_without_deleting_untracked ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.97s
+
+     Running tests/pkg_cmd.rs (target/debug/deps/pkg_cmd-ecffec23715de0d5)
+
+running 29 tests
+test do_without_yes_bails ... ok
+test pkg_download_without_yes_bails ... ok
+test do_with_no_scripts_prints_nothing_to_execute ... ok
+test pkg_dl_without_yes_bails ... ok
+test pkg_dl_alias_matches_download ... ok
+test pkg_info_still_works ... ok
+test do_auto_selects_single_mcm_in_cwd ... ok
+test pkg_download_with_yes_proceeds ... ok
+test do_with_yes_executes_scripts_from_game_root ... ok
+test pkg_install_duplicate_asset_aborts_without_partial ... ok
+test pkg_install_empty_package_succeeds ... ok
+test pkg_install_with_yes_records_lock_entry ... ok
+test pkg_install_with_yes_writes_mod_jars_and_assets ... ok
+test pkg_install_without_yes_bails_in_non_tty ... ok
+test pkg_install_with_script_warns_on_stderr_with_yes ... ok
+test pkg_install_without_script_no_warning ... ok
+test pkg_list_on_fresh_config_is_empty ... ok
+test pkg_list_never_prompts_without_yes ... ok
+test pkg_list_after_install_shows_entry ... ok
+test pkg_make_creates_valid_json ... ok
+test pkg_make_excludes_secrets_by_default ... ok
+test pkg_share_without_yes_bails ... ok
+test pkg_share_with_yes_prints_not_implemented ... ok
+test top_install_no_mcm_in_cwd_errors ... ok
+test top_install_auto_selects_smallest_mcm ... ok
+test top_install_rejects_mc_smart_target ... ok
+test top_install_rejects_raw_mod_name ... ok
+test top_install_without_yes_bails ... ok
+test top_install_with_target_installs ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.66s
+
+     Running tests/server.rs (target/debug/deps/server-31642ffbb24f08be)
+
+running 12 tests
+test share_publish_without_auth_returns_401 ... ok
+test health_returns_ok_and_mode_source ... ok
+test share_mode_share_routes_enabled_return_empty_list ... ok
+test share_mode_source_routes_disabled ... ok
+test share_pkg_download_unknown_slug_returns_404 ... ok
+test health_returns_ok_and_mode_both ... ok
+test health_returns_ok_and_mode_share ... ok
+test both_mode_both_route_sets_enabled ... ok
+test source_mode_share_routes_disabled ... ok
+test source_mode_source_routes_enabled_return_404_when_unconfigured ... ok
+test unknown_api_path_returns_json_not_found ... ok
+test spa_dashboard_route_serves_index_html ... FAILED
+
+failures:
+
+---- spa_dashboard_route_serves_index_html stdout ----
+
+thread 'spa_dashboard_route_serves_index_html' (536797) panicked at tests/server.rs:185:5:
+assertion `left == right` failed
+  left: 404
+ right: 200
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    spa_dashboard_route_serves_index_html
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+error: test failed, to rerun pass `--test server`
+
+### cargo fmt --check (retry with cargo env)
+
+### cargo clippy --all-targets --all-features -- -D warnings (retry with cargo env)
+    Checking mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.78s
+
+### cargo test --test server spa_dashboard_route_serves_index_html unknown_api_path_returns_json_not_found -- --nocapture
+error: unexpected argument 'unknown_api_path_returns_json_not_found' found
+
+Usage: cargo test [OPTIONS] [TESTNAME] [-- [ARGS]...]
+
+For more information, try '--help'.
+
+### cargo test server_auth server_storage server corrected invocation -- --nocapture
+   Compiling mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 43s
+     Running tests/server_auth.rs (target/debug/deps/server_auth-ac2d3fd6ab336a08)
+
+running 16 tests
+test oidc_start_returns_auth_url ... ok
+test oidc_callback_issues_session_token ... ok
+test oidc_session_returns_401_without_token ... ok
+test non_json_content_type_returns_415 ... ok
+test oidc_session_returns_owner_for_valid_token ... ok
+test delete_by_another_user_returns_403 ... ok
+test deleted_slug_reserved_for_two_days ... ok
+test publish_after_delete_same_day_still_429 ... ok
+test publish_with_invalid_token_returns_401 ... ok
+test publish_with_valid_session_succeeds ... ok
+test publish_without_auth_returns_401 ... ok
+test second_publish_same_day_returns_429 ... ok
+test sixth_package_returns_409_limit ... ok
+test update_by_another_user_returns_403 ... ok
+test update_on_next_day_succeeds ... ok
+test oversized_body_returns_413 ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s
+
+   Compiling mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 01s
+     Running tests/server_storage.rs (target/debug/deps/server_storage-610f5ed97c80e7ac)
+
+running 14 tests
+test http_list_empty_returns_200 ... ok
+test storage_duplicate_slug_returns_conflict ... ok
+test http_publish_without_auth_returns_401 ... ok
+test http_delete_owner_mismatch_returns_403 ... ok
+test http_update_owner_mismatch_returns_403 ... ok
+test http_publish_duplicate_returns_409 ... ok
+test storage_delete_reserves_slug_for_two_days ... ok
+test http_publish_download_update_delete_roundtrip_with_clock ... ok
+test storage_persists_across_reopen ... ok
+test storage_refuses_data_dir_under_x ... ok
+test storage_rejects_invalid_slug ... ok
+test storage_rejects_secret_payload ... ok
+test storage_update_owner_mismatch_returns_forbidden ... ok
+test storage_update_overwrites_without_backup ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+   Compiling mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 03s
+     Running tests/server.rs (target/debug/deps/server-31642ffbb24f08be)
+
+running 12 tests
+test health_returns_ok_and_mode_source ... ok
+test share_mode_source_routes_disabled ... ok
+test health_returns_ok_and_mode_share ... ok
+test share_mode_share_routes_enabled_return_empty_list ... ok
+test share_pkg_download_unknown_slug_returns_404 ... ok
+test share_publish_without_auth_returns_401 ... ok
+test health_returns_ok_and_mode_both ... ok
+test both_mode_both_route_sets_enabled ... ok
+test source_mode_share_routes_disabled ... ok
+test source_mode_source_routes_enabled_return_404_when_unconfigured ... ok
+test unknown_api_path_returns_json_not_found ... ok
+test spa_dashboard_route_serves_index_html ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+
+### cargo test final
+   Compiling mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 24s
+     Running unittests src/lib.rs (target/debug/deps/mcm-d4a8c3caa31b5c78)
+
+running 64 tests
+test confirmation::tests::autoremove_warning_contains_required_phrases ... ok
+test confirmation::tests::classify_actionable_ops_are_bypassable ... ok
+test confirmation::tests::classify_harmless_ops_dont_exist_in_enum ... ok
+test confirmation::tests::is_mc_critical_flags_autoremove_world_ops ... ok
+test confirmation::tests::classify_root_system_change_is_non_bypassable ... ok
+test confirmation::tests::require_confirmation_bypassable_with_yes_succeeds_without_tty ... ok
+test confirmation::tests::require_confirmation_bypassable_without_yes_bails_in_non_tty ... ok
+test confirmation::tests::require_confirmation_non_bypassable_bails_in_non_tty_even_with_yes ... ok
+test confirmation::tests::root_escalation_helper_non_interactive_bails_with_sudo_command ... ok
+test install::tests::build_plan_records_resolved_dependency_logical_id_for_reachability ... ok
+test install::tests::composite_provider_merges_projects_from_multiple_sources ... ok
+test install::tests::select_artifact_uses_numeric_versions_and_download_count_tiebreaker ... ok
+test mc_target::tests::at_latest_suffix_is_rejected ... ok
+test jar_info::tests::mcmod_info_fields_are_read_from_generated_zip ... ok
+test mc_target::tests::loader_case_insensitive ... ok
+test mc_target::tests::mc_alone_means_latest_vanilla ... ok
+test mc_target::tests::mc_loader_means_latest_mc_latest_loader ... ok
+test mc_target::tests::mc_version_loader_means_specific_mc_latest_loader ... ok
+test mc_target::tests::mc_version_loader_version_means_exact ... ok
+test mc_target::tests::mc_with_version_means_specific_vanilla ... ok
+test mc_target::tests::non_mc_prefix_is_rejected ... ok
+test mc_target::tests::unknown_loader_is_rejected ... ok
+test provider::curseforge::tests::curseforge_download_refuses_when_url_host_not_allowlisted ... ok
+test provider::curseforge::tests::curseforge_download_sends_api_key_header_to_allowlisted_cdn ... ok
+test provider::curseforge::tests::curseforge_json_mapping_preserves_slug_files_hashes_and_dependencies ... ok
+test provider::modrinth::tests::modrinth_json_mapping_preserves_project_artifacts_dependencies_and_release_types ... ok
+test safety::tests::sanitize_filename_rejects_null_drive_and_reserved_names ... ok
+test safety::tests::sanitize_filename_rejects_traversal_and_non_jars ... ok
+test safety::tests::validate_download_url_allowlists_only_known_cdn_hosts ... ok
+test safety::tests::validate_download_url_requires_https_and_rejects_private_hosts ... ok
+test server::config::tests::both_mode_enables_both ... ok
+test server::config::tests::parse_mode_roundtrips ... ok
+test server::config::tests::secret_string_debug_is_redacted ... ok
+test server::config::tests::server_config_debug_redacts_secret ... ok
+test server::config::tests::share_mode_enables_share_only ... ok
+test server::config::tests::source_mode_enables_source_only ... ok
+test server::source_store::tests::get_blob_reads_file ... ok
+test server::source_store::tests::get_blob_returns_none_when_absent ... ok
+test server::source_store::tests::get_index_parses_valid_file ... ok
+test server::source_store::tests::get_index_returns_none_when_file_absent ... ok
+test server::source_store::tests::get_package_finds_by_id ... ok
+test server::source_store::tests::get_package_returns_none_for_unknown_slug ... ok
+test server::source_store::tests::sanitize_rejects_traversal ... ok
+test server::storage::helpers::tests::normalize_slug_lowercases_and_validates ... ok
+test server::storage::helpers::tests::refuse_under_x_rejects_x_paths ... ok
+test server::storage::helpers::tests::validate_payload_rejects_secrets ... ok
+test source_index::tests::parses_valid_full_index_with_capabilities_and_actions ... ok
+test source_index::tests::parses_valid_minimal_index ... ok
+test source_index::tests::rejects_excessive_depth ... ok
+test source_index::tests::rejects_invalid_source_id_consecutive_hyphens ... ok
+test source_index::tests::rejects_invalid_source_id_uppercase ... ok
+test source_index::tests::rejects_malformed_json ... ok
+test source_index::tests::rejects_missing_required_fields ... ok
+test source_index::tests::rejects_secret_field_at_top_level ... ok
+test source_index::tests::rejects_secret_field_nested_in_package ... ok
+test source_index::tests::rejects_unknown_schema_version ... ok
+test source_index::tests::validates_source_id_boundary_cases ... ok
+test source_resolve::tests::find_package_returns_none_for_empty ... ok
+test source_resolve::tests::find_package_returns_none_when_no_versions ... ok
+test source_resolve::tests::find_package_synthesizes_mcm_with_external_url ... ok
+test source_resolve::tests::find_package_uses_blob_ref_when_no_download_url ... ok
+test source_index::tests::rejects_oversized_index ... ok
+test provider::curseforge::tests::curseforge_http_client_does_not_follow_redirects_with_api_key_headers ... ok
+test provider::curseforge::tests::modrinth_http_client_does_not_follow_redirects_after_url_validation ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+     Running unittests src/main.rs (target/debug/deps/mcm-3b732008190f76d3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/characterization.rs (target/debug/deps/characterization-11184613c63ad9d3)
+
+running 44 tests
+test info_cloud_without_active_profile_errors ... ok
+test cloud_info_for_brokenmod_succeeds_without_download_url ... ok
+test cloud_info_for_standalone_has_no_dep_lines ... ok
+test install_dry_run_prints_plan_without_writing_jars ... ok
+test cloud_info_prints_selected_artifact_and_all_dependency_kinds ... ok
+test install_file_missing_errors_on_read ... ok
+test autoremove_nothing_to_do_is_silent_success ... ok
+test autoremove_keeps_required_dep_while_manual_root_still_needs_it ... ok
+test install_missing_download_url_errors_and_leaves_no_partial_jar ... ok
+test install_file_parses_comments_and_blank_lines_into_one_plan ... ok
+test install_rootmod_emits_all_four_warning_kinds_in_order ... ok
+test install_search_query_not_found_errors ... ok
+test install_without_query_or_file_errors ... ok
+test autoremove_requires_yes_when_removable ... ok
+test list_without_active_profile_errors_with_actionable_message ... ok
+test local_jar_info_falls_back_to_hash_when_metadata_unavailable ... ok
+test local_jar_info_nonexistent_jar_path_errors_on_read ... ok
+test local_jar_info_reads_mcmod_info_array_fields ... ok
+test local_jar_info_reads_fabric_mod_json_id_and_version ... ok
+test local_jar_info_reads_mods_toml_modid_and_version_lines ... ok
+test local_jar_info_zip_without_known_metadata_reports_unavailable ... ok
+test list_empty_is_silent_success ... ok
+test profile_list_empty_is_silent_success ... ok
+test list_prints_installed_mods_alphabetically_with_reason_and_identity ... ok
+test profile_add_defaults_side_to_both_and_show_uses_debug_format ... ok
+test profile_add_sets_new_profile_active_and_creates_mods_dir ... ok
+test profile_show_named_unknown_errors ... ok
+test profile_use_unknown_profile_errors ... ok
+test provider_curseforge_info_also_requires_api_key ... ok
+test provider_curseforge_requires_api_key_env ... ok
+test provider_mock_works_offline_for_search ... ok
+test remove_unknown_mod_errors ... ok
+test search_groups_duplicate_candidates_by_logical_id ... ok
+test search_matches_title_substring_case_insensitively ... ok
+test remove_requires_yes_flag ... ok
+test search_without_active_profile_errors ... ok
+test remove_manual_root_keeps_auto_required_dep_until_autoremove ... ok
+test profile_use_switches_active_and_list_marks_active_with_star ... ok
+test remove_auto_dependency_is_rejected_with_autoremove_hint ... ok
+test search_no_match_is_silent_success ... ok
+test status_without_active_profile_errors ... ok
+test status_reports_ok_for_intact_owned_jars ... ok
+test uninstall_is_alias_for_remove ... ok
+test status_reports_missing_and_changed_and_untracked_without_claiming_untracked ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
+
+     Running tests/confirmation.rs (target/debug/deps/confirmation-75183900dd1a1447)
+
+running 21 tests
+test bypassable_game_remove_without_yes_bails ... ok
+test bypassable_install_with_yes_proceeds_without_prompt ... ok
+test game_remove_with_yes_proceeds ... ok
+test autoremove_nothing_to_do_does_not_emit_warning ... ok
+test autoremove_with_yes_emits_mc_critical_warning_to_stderr ... ok
+test bypassable_autoremove_with_yes_proceeds_without_prompt ... ok
+test bypassable_autoremove_without_yes_bails_in_non_tty ... ok
+test autoremove_without_yes_does_not_emit_warning_only_bails ... ok
+test bypassable_remove_with_yes_proceeds_without_prompt ... ok
+test bypassable_remove_without_yes_bails_in_non_tty ... ok
+test pkg_info_is_read_only_and_never_prompts ... ok
+test read_only_game_info_never_prompts ... ok
+test install_interactive_prompt_accepts_y_from_stdin ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test install_interactive_prompt_rejects_n_from_stdin ... ok
+test read_only_dry_run_never_prompts ... ok
+test read_only_game_list_never_prompts ... ok
+test read_only_info_never_prompts ... ok
+test read_only_list_never_prompts ... ok
+test read_only_search_never_prompts ... ok
+test read_only_status_never_prompts ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+
+     Running tests/download.rs (target/debug/deps/download-2ba7d6877b243106)
+
+running 6 tests
+test permanent_failure_always_500_leaves_no_finalized_file ... ok
+test fetcher_trait_can_be_implemented_for_in_memory_bytes ... ok
+test permanent_hash_mismatch_deletes_part_and_errors ... ok
+test successful_download_writes_correct_file_with_hash_match ... ok
+test resume_continues_from_part_file_when_server_supports_206 ... ok
+test flaky_server_fails_first_n_then_succeeds_on_retry ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/game_config.rs (target/debug/deps/game_config-8185f01d9cae2e9f)
+
+running 28 tests
+test game_config_shows_version_scoped_fields ... ok
+test game_config_unset_fields_show_unset ... ok
+test game_default_no_arg_no_default_prints_no_default_game ... ok
+test game_config_unknown_game_errors ... ok
+test game_default_set_unknown_game_errors ... ok
+test game_default_no_arg_with_default_prints_default_name ... ok
+test game_default_set_persists_and_shows_in_list ... ok
+test game_info_unknown_game_errors ... ok
+test game_info_shows_root_version_loader_config_paths ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test game_info_unset_mc_version_and_loader_shows_unset ... ok
+test fresh_install_has_no_games_and_no_default ... ok
+test game_install_valid_target_reaches_stub ... ok
+test game_list_empty_is_silent_success ... ok
+test game_list_no_default_shows_no_star ... ok
+test game_remove_unknown_game_errors ... ok
+test game_remove_without_yes_errors ... ok
+test game_list_marks_default_with_star ... ok
+test game_rename_unknown_old_errors ... ok
+test game_rename_to_existing_name_errors ... ok
+test game_remove_does_not_touch_unrelated_games ... ok
+test game_remove_with_yes_removes_record_and_leaves_disk ... ok
+test game_rename_does_not_touch_unrelated_games ... ok
+test game_remove_default_clears_default_pointer ... ok
+test migration_skipped_when_games_already_exist ... ok
+test migration_does_not_delete_old_profile_data ... ok
+test migration_profiles_appear_as_games_when_games_empty ... ok
+test game_rename_updates_config_and_default_pointer ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/help.rs (target/debug/deps/help-6b2d93ce219a8b28)
+
+running 7 tests
+test help_lists_all_top_level_commands_and_description ... ok
+test help_does_not_list_old_top_level_mod_manager_commands ... ok
+test mods_install_help_lists_file_option_for_mod_list ... ok
+test pkg_dl_is_alias_for_download ... ok
+test top_level_install_help_accepts_only_mcm_target_and_yes ... ok
+test mod_is_alias_for_mods ... ok
+test game_install_help_describes_smart_targets ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/mc_target.rs (target/debug/deps/mc_target-bc3d36fc0b9bfda7)
+
+running 17 tests
+test parser_fabric_grammar_matches_neoforge_grammar ... ok
+test parser_forge_grammar_matches ... ok
+test parser_loader_case_insensitive ... ok
+test parser_mc_alone_means_latest_vanilla ... ok
+test parser_mc_neoforge_means_latest_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_means_specific_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_version_means_exact ... ok
+test parser_mc_with_version_means_specific_vanilla ... ok
+test parser_quilt_grammar_matches ... ok
+test parser_rejects_at_latest_suffix ... ok
+test parser_rejects_non_mc_prefix ... ok
+test parser_rejects_unknown_loader ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test game_install_valid_target_reaches_stub ... ok
+test top_level_install_rejects_extra_option ... ok
+test top_level_install_rejects_mc_smart_target ... ok
+test top_level_install_rejects_raw_mod_name ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/mcm_package.rs (target/debug/deps/mcm_package-e532b1c9d1b3ae99)
+
+running 30 tests
+test parser_accepts_longest_valid_name ... ok
+test parser_accepts_nested_valid_asset_path ... ok
+test parser_rejects_empty_package_object ... ok
+test parser_accepts_package_with_all_optional_fields_present ... ok
+test parser_accepts_valid_minimal_package ... ok
+test parser_accepts_valid_full_package ... ok
+test parser_rejects_missing_required_fields ... ok
+test parser_rejects_excessive_nesting_depth ... ok
+test parser_rejects_missing_schema_version ... ok
+test parser_rejects_name_too_long ... ok
+test parser_rejects_name_with_consecutive_hyphens ... ok
+test parser_rejects_name_with_leading_trailing_hyphen ... ok
+test parser_rejects_nested_secret_field_case_insensitive ... ok
+test parser_rejects_path_traversal_in_asset ... ok
+test parser_rejects_reserved_name_mcm ... ok
+test parser_rejects_secret_in_array_element ... ok
+test parser_rejects_top_level_token_field ... ok
+test parser_rejects_unknown_schema_version ... ok
+test parser_rejects_uppercase_and_underscore_in_name ... ok
+test parser_rejects_windows_reserved_names ... ok
+test parser_rejects_oversized_json ... ok
+test pkg_info_exits_nonzero_for_missing_file ... ok
+test pkg_info_exits_nonzero_for_reserved_name ... ok
+test pkg_info_exits_nonzero_for_path_traversal_asset ... ok
+test pkg_info_exits_nonzero_for_secret_field ... ok
+test pkg_info_exits_nonzero_for_unknown_schema_version ... ok
+test pkg_install_is_no_longer_stubbed ... ok
+test pkg_info_shows_local_present_when_local_field_set ... ok
+test pkg_info_prints_summary_for_valid_file ... ok
+test pkg_list_is_no_longer_stubbed ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/modpack_import.rs (target/debug/deps/modpack_import-2db25a7396f89267)
+
+running 14 tests
+test backslash_path_entry_rejected ... ok
+test mrpack_import_hash_mismatch_rejected ... ok
+test absolute_path_entry_rejected ... ok
+test non_modpack_zip_rejected ... ok
+test curseforge_import_installs_overrides_and_warns_on_unresolvable_mods ... ok
+test oversized_archive_rejected ... ok
+test mrpack_import_without_yes_bails ... ok
+test mrpack_import_installs_mods_and_overrides ... ok
+test pkg_make_default_format_is_mcm ... ok
+test path_traversal_entry_rejected_no_partial_install ... ok
+test secret_field_in_mrpack_index_rejected ... ok
+test top_install_dispatches_to_mrpack_import ... ok
+test pkg_make_mrpack_writes_valid_mrpack ... ok
+test pkg_make_mrpack_round_trip_import ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/mvp.rs (target/debug/deps/mvp-df8f3a080f523f7b)
+
+running 13 tests
+test local_jar_info_falls_back_to_hash_without_fake_provider_identity ... ok
+test cloud_info_uses_profile_constraints_and_surfaces_optional_dependency ... ok
+test install_dry_run_does_not_write_jars ... ok
+test install_single_mod_installs_required_dependency_but_not_optional_or_beta ... ok
+test install_file_parses_comments_into_one_plan ... ok
+test curseforge_provider_requires_api_key ... ok
+test missing_download_url_errors_without_partial_install ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test install_searches_query_first_and_yes_accepts_plan ... ok
+test search_groups_same_logical_mod_across_provider_candidates_and_excludes_beta ... ok
+test remove_and_autoremove_preserve_required_deps_until_no_manual_roots_need_them ... ok
+test status_detects_missing_changed_and_untracked_jars_without_deleting_untracked ... ok
+test profile_add_use_show_and_list_work_with_isolated_paths ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/pkg_cmd.rs (target/debug/deps/pkg_cmd-ecffec23715de0d5)
+
+running 29 tests
+test do_auto_selects_single_mcm_in_cwd ... ok
+test pkg_dl_alias_matches_download ... ok
+test pkg_dl_without_yes_bails ... ok
+test pkg_download_with_yes_proceeds ... ok
+test do_with_no_scripts_prints_nothing_to_execute ... ok
+test do_without_yes_bails ... ok
+test do_with_yes_executes_scripts_from_game_root ... ok
+test pkg_info_still_works ... ok
+test pkg_download_without_yes_bails ... ok
+test pkg_install_empty_package_succeeds ... ok
+test pkg_install_duplicate_asset_aborts_without_partial ... ok
+test pkg_install_with_yes_writes_mod_jars_and_assets ... ok
+test pkg_install_without_yes_bails_in_non_tty ... ok
+test pkg_install_with_yes_records_lock_entry ... ok
+test pkg_install_with_script_warns_on_stderr_with_yes ... ok
+test pkg_install_without_script_no_warning ... ok
+test pkg_list_on_fresh_config_is_empty ... ok
+test pkg_list_after_install_shows_entry ... ok
+test pkg_list_never_prompts_without_yes ... ok
+test pkg_make_creates_valid_json ... ok
+test pkg_make_excludes_secrets_by_default ... ok
+test pkg_share_with_yes_prints_not_implemented ... ok
+test top_install_auto_selects_smallest_mcm ... ok
+test pkg_share_without_yes_bails ... ok
+test top_install_no_mcm_in_cwd_errors ... ok
+test top_install_rejects_mc_smart_target ... ok
+test top_install_rejects_raw_mod_name ... ok
+test top_install_with_target_installs ... ok
+test top_install_without_yes_bails ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests/server.rs (target/debug/deps/server-31642ffbb24f08be)
+
+running 12 tests
+test share_mode_source_routes_disabled ... ok
+test share_mode_share_routes_enabled_return_empty_list ... ok
+test health_returns_ok_and_mode_share ... ok
+test share_publish_without_auth_returns_401 ... ok
+test share_pkg_download_unknown_slug_returns_404 ... ok
+test health_returns_ok_and_mode_both ... ok
+test source_mode_share_routes_disabled ... ok
+test both_mode_both_route_sets_enabled ... ok
+test health_returns_ok_and_mode_source ... ok
+test source_mode_source_routes_enabled_return_404_when_unconfigured ... ok
+test unknown_api_path_returns_json_not_found ... ok
+test spa_dashboard_route_serves_index_html ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/server_auth.rs (target/debug/deps/server_auth-ac2d3fd6ab336a08)
+
+running 16 tests
+test oidc_start_returns_auth_url ... ok
+test oidc_session_returns_401_without_token ... ok
+test oidc_callback_issues_session_token ... ok
+test non_json_content_type_returns_415 ... ok
+test oidc_session_returns_owner_for_valid_token ... ok
+test delete_by_another_user_returns_403 ... ok
+test publish_with_invalid_token_returns_401 ... ok
+test publish_without_auth_returns_401 ... ok
+test publish_with_valid_session_succeeds ... ok
+test publish_after_delete_same_day_still_429 ... ok
+test second_publish_same_day_returns_429 ... ok
+test deleted_slug_reserved_for_two_days ... ok
+test update_by_another_user_returns_403 ... ok
+test update_on_next_day_succeeds ... ok
+test sixth_package_returns_409_limit ... ok
+test oversized_body_returns_413 ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+
+     Running tests/server_storage.rs (target/debug/deps/server_storage-610f5ed97c80e7ac)
+
+running 14 tests
+test storage_duplicate_slug_returns_conflict ... ok
+test http_publish_without_auth_returns_401 ... ok
+test http_list_empty_returns_200 ... ok
+test storage_refuses_data_dir_under_x ... ok
+test http_update_owner_mismatch_returns_403 ... ok
+test http_delete_owner_mismatch_returns_403 ... ok
+test storage_delete_reserves_slug_for_two_days ... ok
+test http_publish_duplicate_returns_409 ... ok
+test storage_rejects_invalid_slug ... ok
+test storage_rejects_secret_payload ... ok
+test storage_persists_across_reopen ... ok
+test http_publish_download_update_delete_roundtrip_with_clock ... ok
+test storage_update_owner_mismatch_returns_forbidden ... ok
+test storage_update_overwrites_without_backup ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/source_cmd.rs (target/debug/deps/source_cmd-48b8df52f2b71cdb)
+
+running 12 tests
+test fresh_config_has_no_sources_on_disk ... ok
+test source_add_without_yes_bails_in_non_tty ... ok
+test source_info_unknown_errors ... ok
+test source_add_persists_to_config_toml ... ok
+test source_add_with_yes_succeeds_and_appears_in_list ... ok
+test source_list_on_fresh_config_is_empty ... ok
+test source_add_duplicate_bails ... ok
+test source_added_in_one_config_not_in_another ... ok
+test source_remove_unknown_errors ... ok
+test source_list_multiple_sources_in_alphabetical_order ... ok
+test source_remove_removes_from_list ... ok
+test source_info_prints_url_and_trusted_status ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
+
+     Running tests/source_index.rs (target/debug/deps/source_index-17f916e4fc9b4339)
+
+running 13 tests
+test parse_rejects_invalid_source_id ... ok
+test parse_rejects_malformed_json ... ok
+test parse_rejects_secret_field ... ok
+test parse_full_index_preserves_capabilities_and_actions ... ok
+test parse_rejects_unknown_schema_version ... ok
+test parse_valid_minimal_index_via_public_api ... ok
+test source_info_non_http_url_falls_back_to_stored_record ... ok
+test source_info_with_actions_shows_declared_not_executed ... ok
+test source_info_with_malformed_index_shows_error_without_crash ... ok
+test source_provider_resolves_package_from_served_index ... ok
+test source_info_unreachable_http_shows_unavailable_note ... ok
+test source_info_fetches_and_displays_index_metadata ... ok
+test source_info_malformed_index_does_not_mutate_config ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/source_service.rs (target/debug/deps/source_service-0f55b12e6513943f)
+
+running 12 tests
+test get_index_serves_configured_index_json ... ok
+test get_meta_returns_404_for_unknown_slug ... ok
+test get_index_returns_404_when_not_configured ... ok
+test get_blob_serves_raw_bytes ... ok
+test get_meta_returns_package_metadata ... ok
+test get_blob_returns_404_for_missing ... ok
+test source_routes_disabled_in_share_mode ... ok
+test source_routes_work_in_both_mode ... ok
+test source_add_local_service_index_succeeds ... ok
+test pkg_install_from_source_external_url_succeeds ... ok
+test pkg_install_from_source_hosted_blob_succeeds ... ok
+test pkg_install_hash_mismatch_aborts_as_corruption_not_hostile ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+   Doc-tests mcm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+### cargo fmt --check final
+
+### cargo clippy --all-targets --all-features -- -D warnings final
+    Checking mcm v0.1.0 (/mnt/Storage1_xe6x96xb0xe5x8axa0xe5x8dxb7/nas/lucky/mcm)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.35s
+
+### browser QA server startup
+QA_DIR=/tmp/mcm-task16-Icfhni
+QA_PORT=18950
+SERVER_PID=548999
+{"mode":"both","status":"ok"}
+SERVER_LOG_BEGIN
+SERVER_LOG_END
+
+### RESUME focused failing test: cargo test --test server spa_dashboard_route_serves_index_html -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.10s
+     Running tests/server.rs (target/debug/deps/server-31642ffbb24f08be)
+
+running 1 test
+test spa_dashboard_route_serves_index_html ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.49s
+
+
+### RESUME cargo test --test server -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.53s
+     Running tests/server.rs (target/debug/deps/server-31642ffbb24f08be)
+
+running 12 tests
+test health_returns_ok_and_mode_both ... ok
+test health_returns_ok_and_mode_source ... ok
+test health_returns_ok_and_mode_share ... ok
+test share_publish_without_auth_returns_401 ... ok
+test share_pkg_download_unknown_slug_returns_404 ... ok
+test share_mode_source_routes_disabled ... ok
+test share_mode_share_routes_enabled_return_empty_list ... ok
+test both_mode_both_route_sets_enabled ... ok
+test source_mode_share_routes_disabled ... ok
+test source_mode_source_routes_enabled_return_404_when_unconfigured ... ok
+test unknown_api_path_returns_json_not_found ... ok
+test spa_dashboard_route_serves_index_html ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+### RESUME cargo test
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running unittests src/lib.rs (target/debug/deps/mcm-d4a8c3caa31b5c78)
+
+running 64 tests
+test confirmation::tests::require_confirmation_bypassable_with_yes_succeeds_without_tty ... ok
+test confirmation::tests::classify_harmless_ops_dont_exist_in_enum ... ok
+test confirmation::tests::is_mc_critical_flags_autoremove_world_ops ... ok
+test confirmation::tests::classify_root_system_change_is_non_bypassable ... ok
+test confirmation::tests::classify_actionable_ops_are_bypassable ... ok
+test confirmation::tests::autoremove_warning_contains_required_phrases ... ok
+test confirmation::tests::require_confirmation_non_bypassable_bails_in_non_tty_even_with_yes ... ok
+test confirmation::tests::require_confirmation_bypassable_without_yes_bails_in_non_tty ... ok
+test confirmation::tests::root_escalation_helper_non_interactive_bails_with_sudo_command ... ok
+test install::tests::composite_provider_merges_projects_from_multiple_sources ... ok
+test mc_target::tests::at_latest_suffix_is_rejected ... ok
+test install::tests::build_plan_records_resolved_dependency_logical_id_for_reachability ... ok
+test install::tests::select_artifact_uses_numeric_versions_and_download_count_tiebreaker ... ok
+test mc_target::tests::loader_case_insensitive ... ok
+test mc_target::tests::mc_alone_means_latest_vanilla ... ok
+test mc_target::tests::mc_loader_means_latest_mc_latest_loader ... ok
+test mc_target::tests::mc_version_loader_means_specific_mc_latest_loader ... ok
+test mc_target::tests::mc_version_loader_version_means_exact ... ok
+test jar_info::tests::mcmod_info_fields_are_read_from_generated_zip ... ok
+test mc_target::tests::mc_with_version_means_specific_vanilla ... ok
+test mc_target::tests::non_mc_prefix_is_rejected ... ok
+test mc_target::tests::unknown_loader_is_rejected ... ok
+test provider::curseforge::tests::curseforge_json_mapping_preserves_slug_files_hashes_and_dependencies ... ok
+test provider::modrinth::tests::modrinth_json_mapping_preserves_project_artifacts_dependencies_and_release_types ... ok
+test safety::tests::sanitize_filename_rejects_null_drive_and_reserved_names ... ok
+test safety::tests::sanitize_filename_rejects_traversal_and_non_jars ... ok
+test safety::tests::validate_download_url_allowlists_only_known_cdn_hosts ... ok
+test safety::tests::validate_download_url_requires_https_and_rejects_private_hosts ... ok
+test server::config::tests::both_mode_enables_both ... ok
+test provider::curseforge::tests::curseforge_download_sends_api_key_header_to_allowlisted_cdn ... ok
+test server::config::tests::secret_string_debug_is_redacted ... ok
+test server::config::tests::parse_mode_roundtrips ... ok
+test provider::curseforge::tests::curseforge_download_refuses_when_url_host_not_allowlisted ... ok
+test server::config::tests::server_config_debug_redacts_secret ... ok
+test server::config::tests::share_mode_enables_share_only ... ok
+test server::config::tests::source_mode_enables_source_only ... ok
+test server::source_store::tests::get_blob_reads_file ... ok
+test server::source_store::tests::get_blob_returns_none_when_absent ... ok
+test server::source_store::tests::get_index_parses_valid_file ... ok
+test server::source_store::tests::get_index_returns_none_when_file_absent ... ok
+test server::source_store::tests::get_package_finds_by_id ... ok
+test server::source_store::tests::get_package_returns_none_for_unknown_slug ... ok
+test server::source_store::tests::sanitize_rejects_traversal ... ok
+test server::storage::helpers::tests::normalize_slug_lowercases_and_validates ... ok
+test server::storage::helpers::tests::refuse_under_x_rejects_x_paths ... ok
+test server::storage::helpers::tests::validate_payload_rejects_secrets ... ok
+test source_index::tests::parses_valid_minimal_index ... ok
+test source_index::tests::parses_valid_full_index_with_capabilities_and_actions ... ok
+test source_index::tests::rejects_invalid_source_id_consecutive_hyphens ... ok
+test source_index::tests::rejects_excessive_depth ... ok
+test source_index::tests::rejects_invalid_source_id_uppercase ... ok
+test source_index::tests::rejects_malformed_json ... ok
+test source_index::tests::rejects_missing_required_fields ... ok
+test source_index::tests::rejects_secret_field_at_top_level ... ok
+test source_index::tests::rejects_secret_field_nested_in_package ... ok
+test source_index::tests::rejects_unknown_schema_version ... ok
+test source_index::tests::validates_source_id_boundary_cases ... ok
+test source_resolve::tests::find_package_returns_none_for_empty ... ok
+test source_resolve::tests::find_package_returns_none_when_no_versions ... ok
+test source_resolve::tests::find_package_synthesizes_mcm_with_external_url ... ok
+test source_resolve::tests::find_package_uses_blob_ref_when_no_download_url ... ok
+test source_index::tests::rejects_oversized_index ... ok
+test provider::curseforge::tests::curseforge_http_client_does_not_follow_redirects_with_api_key_headers ... ok
+test provider::curseforge::tests::modrinth_http_client_does_not_follow_redirects_after_url_validation ... ok
+
+test result: ok. 64 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s
+
+     Running unittests src/main.rs (target/debug/deps/mcm-3b732008190f76d3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/characterization.rs (target/debug/deps/characterization-11184613c63ad9d3)
+
+running 44 tests
+test info_cloud_without_active_profile_errors ... ok
+test cloud_info_for_brokenmod_succeeds_without_download_url ... ok
+test cloud_info_for_standalone_has_no_dep_lines ... ok
+test cloud_info_prints_selected_artifact_and_all_dependency_kinds ... ok
+test install_dry_run_prints_plan_without_writing_jars ... ok
+test autoremove_nothing_to_do_is_silent_success ... ok
+test autoremove_keeps_required_dep_while_manual_root_still_needs_it ... ok
+test install_file_missing_errors_on_read ... ok
+test install_missing_download_url_errors_and_leaves_no_partial_jar ... ok
+test install_rootmod_emits_all_four_warning_kinds_in_order ... ok
+test install_search_query_not_found_errors ... ok
+test list_without_active_profile_errors_with_actionable_message ... ok
+test install_file_parses_comments_and_blank_lines_into_one_plan ... ok
+test list_empty_is_silent_success ... ok
+test autoremove_requires_yes_when_removable ... ok
+test install_without_query_or_file_errors ... ok
+test local_jar_info_falls_back_to_hash_when_metadata_unavailable ... ok
+test local_jar_info_nonexistent_jar_path_errors_on_read ... ok
+test local_jar_info_reads_fabric_mod_json_id_and_version ... ok
+test local_jar_info_reads_mcmod_info_array_fields ... ok
+test local_jar_info_reads_mods_toml_modid_and_version_lines ... ok
+test local_jar_info_zip_without_known_metadata_reports_unavailable ... ok
+test profile_list_empty_is_silent_success ... ok
+test profile_add_defaults_side_to_both_and_show_uses_debug_format ... ok
+test list_prints_installed_mods_alphabetically_with_reason_and_identity ... ok
+test profile_add_sets_new_profile_active_and_creates_mods_dir ... ok
+test profile_show_named_unknown_errors ... ok
+test profile_use_unknown_profile_errors ... ok
+test provider_curseforge_requires_api_key_env ... ok
+test provider_curseforge_info_also_requires_api_key ... ok
+test provider_mock_works_offline_for_search ... ok
+test remove_unknown_mod_errors ... ok
+test search_groups_duplicate_candidates_by_logical_id ... ok
+test search_matches_title_substring_case_insensitively ... ok
+test profile_use_switches_active_and_list_marks_active_with_star ... ok
+test remove_requires_yes_flag ... ok
+test remove_auto_dependency_is_rejected_with_autoremove_hint ... ok
+test search_without_active_profile_errors ... ok
+test search_no_match_is_silent_success ... ok
+test status_without_active_profile_errors ... ok
+test remove_manual_root_keeps_auto_required_dep_until_autoremove ... ok
+test status_reports_ok_for_intact_owned_jars ... ok
+test uninstall_is_alias_for_remove ... ok
+test status_reports_missing_and_changed_and_untracked_without_claiming_untracked ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/confirmation.rs (target/debug/deps/confirmation-75183900dd1a1447)
+
+running 21 tests
+test bypassable_game_remove_without_yes_bails ... ok
+test bypassable_install_with_yes_proceeds_without_prompt ... ok
+test autoremove_nothing_to_do_does_not_emit_warning ... ok
+test bypassable_remove_with_yes_proceeds_without_prompt ... ok
+test bypassable_autoremove_with_yes_proceeds_without_prompt ... ok
+test autoremove_without_yes_does_not_emit_warning_only_bails ... ok
+test bypassable_remove_without_yes_bails_in_non_tty ... ok
+test game_remove_with_yes_proceeds ... ok
+test bypassable_autoremove_without_yes_bails_in_non_tty ... ok
+test pkg_info_is_read_only_and_never_prompts ... ok
+test read_only_game_info_never_prompts ... ok
+test install_interactive_prompt_accepts_y_from_stdin ... ok
+test read_only_game_list_never_prompts ... ok
+test autoremove_with_yes_emits_mc_critical_warning_to_stderr ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test install_interactive_prompt_rejects_n_from_stdin ... ok
+test read_only_dry_run_never_prompts ... ok
+test read_only_info_never_prompts ... ok
+test read_only_status_never_prompts ... ok
+test read_only_list_never_prompts ... ok
+test read_only_search_never_prompts ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/download.rs (target/debug/deps/download-2ba7d6877b243106)
+
+running 6 tests
+test fetcher_trait_can_be_implemented_for_in_memory_bytes ... ok
+test successful_download_writes_correct_file_with_hash_match ... ok
+test resume_continues_from_part_file_when_server_supports_206 ... ok
+test permanent_hash_mismatch_deletes_part_and_errors ... ok
+test permanent_failure_always_500_leaves_no_finalized_file ... ok
+test flaky_server_fails_first_n_then_succeeds_on_retry ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/game_config.rs (target/debug/deps/game_config-8185f01d9cae2e9f)
+
+running 28 tests
+test game_config_unset_fields_show_unset ... ok
+test game_config_shows_version_scoped_fields ... ok
+test game_default_set_unknown_game_errors ... ok
+test game_default_no_arg_no_default_prints_no_default_game ... ok
+test game_config_unknown_game_errors ... ok
+test game_default_set_persists_and_shows_in_list ... ok
+test game_default_no_arg_with_default_prints_default_name ... ok
+test fresh_install_has_no_games_and_no_default ... ok
+test game_info_unknown_game_errors ... ok
+test game_info_shows_root_version_loader_config_paths ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test game_info_unset_mc_version_and_loader_shows_unset ... ok
+test game_install_valid_target_reaches_stub ... ok
+test game_list_empty_is_silent_success ... ok
+test game_list_no_default_shows_no_star ... ok
+test game_remove_unknown_game_errors ... ok
+test game_remove_without_yes_errors ... ok
+test game_list_marks_default_with_star ... ok
+test game_rename_to_existing_name_errors ... ok
+test game_remove_does_not_touch_unrelated_games ... ok
+test game_remove_with_yes_removes_record_and_leaves_disk ... ok
+test game_rename_unknown_old_errors ... ok
+test game_remove_default_clears_default_pointer ... ok
+test game_rename_does_not_touch_unrelated_games ... ok
+test migration_skipped_when_games_already_exist ... ok
+test migration_does_not_delete_old_profile_data ... ok
+test migration_profiles_appear_as_games_when_games_empty ... ok
+test game_rename_updates_config_and_default_pointer ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/help.rs (target/debug/deps/help-6b2d93ce219a8b28)
+
+running 7 tests
+test game_install_help_describes_smart_targets ... ok
+test mods_install_help_lists_file_option_for_mod_list ... ok
+test pkg_dl_is_alias_for_download ... ok
+test help_does_not_list_old_top_level_mod_manager_commands ... ok
+test mod_is_alias_for_mods ... ok
+test top_level_install_help_accepts_only_mcm_target_and_yes ... ok
+test help_lists_all_top_level_commands_and_description ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/mc_target.rs (target/debug/deps/mc_target-bc3d36fc0b9bfda7)
+
+running 17 tests
+test parser_mc_alone_means_latest_vanilla ... ok
+test parser_fabric_grammar_matches_neoforge_grammar ... ok
+test parser_forge_grammar_matches ... ok
+test parser_loader_case_insensitive ... ok
+test parser_mc_version_neoforge_means_specific_mc_latest_neoforge ... ok
+test parser_mc_neoforge_means_latest_mc_latest_neoforge ... ok
+test parser_mc_version_neoforge_version_means_exact ... ok
+test parser_mc_with_version_means_specific_vanilla ... ok
+test parser_quilt_grammar_matches ... ok
+test parser_rejects_at_latest_suffix ... ok
+test parser_rejects_non_mc_prefix ... ok
+test parser_rejects_unknown_loader ... ok
+test game_install_invalid_target_errors_before_stub ... ok
+test game_install_valid_target_reaches_stub ... ok
+test top_level_install_rejects_mc_smart_target ... ok
+test top_level_install_rejects_extra_option ... ok
+test top_level_install_rejects_raw_mod_name ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/mcm_package.rs (target/debug/deps/mcm_package-e532b1c9d1b3ae99)
+
+running 30 tests
+test parser_rejects_empty_package_object ... ok
+test parser_accepts_longest_valid_name ... ok
+test parser_accepts_valid_minimal_package ... ok
+test parser_accepts_nested_valid_asset_path ... ok
+test parser_rejects_missing_required_fields ... ok
+test parser_accepts_valid_full_package ... ok
+test parser_rejects_excessive_nesting_depth ... ok
+test parser_accepts_package_with_all_optional_fields_present ... ok
+test parser_rejects_missing_schema_version ... ok
+test parser_rejects_name_too_long ... ok
+test parser_rejects_name_with_consecutive_hyphens ... ok
+test parser_rejects_name_with_leading_trailing_hyphen ... ok
+test parser_rejects_nested_secret_field_case_insensitive ... ok
+test parser_rejects_reserved_name_mcm ... ok
+test parser_rejects_path_traversal_in_asset ... ok
+test parser_rejects_secret_in_array_element ... ok
+test parser_rejects_top_level_token_field ... ok
+test parser_rejects_unknown_schema_version ... ok
+test parser_rejects_uppercase_and_underscore_in_name ... ok
+test parser_rejects_windows_reserved_names ... ok
+test pkg_info_exits_nonzero_for_path_traversal_asset ... ok
+test pkg_info_exits_nonzero_for_missing_file ... ok
+test pkg_info_exits_nonzero_for_secret_field ... ok
+test pkg_info_exits_nonzero_for_reserved_name ... ok
+test pkg_info_prints_summary_for_valid_file ... ok
+test pkg_info_exits_nonzero_for_unknown_schema_version ... ok
+test pkg_info_shows_local_present_when_local_field_set ... ok
+test pkg_install_is_no_longer_stubbed ... ok
+test pkg_list_is_no_longer_stubbed ... ok
+test parser_rejects_oversized_json ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/modpack_import.rs (target/debug/deps/modpack_import-2db25a7396f89267)
+
+running 14 tests
+test mrpack_import_hash_mismatch_rejected ... ok
+test mrpack_import_installs_mods_and_overrides ... ok
+test backslash_path_entry_rejected ... ok
+test oversized_archive_rejected ... ok
+test non_modpack_zip_rejected ... ok
+test absolute_path_entry_rejected ... ok
+test mrpack_import_without_yes_bails ... ok
+test curseforge_import_installs_overrides_and_warns_on_unresolvable_mods ... ok
+test path_traversal_entry_rejected_no_partial_install ... ok
+test secret_field_in_mrpack_index_rejected ... ok
+test pkg_make_default_format_is_mcm ... ok
+test top_install_dispatches_to_mrpack_import ... ok
+test pkg_make_mrpack_writes_valid_mrpack ... ok
+test pkg_make_mrpack_round_trip_import ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/mvp.rs (target/debug/deps/mvp-df8f3a080f523f7b)
+
+running 13 tests
+test local_jar_info_falls_back_to_hash_without_fake_provider_identity ... ok
+test curseforge_provider_requires_api_key ... ok
+test cloud_info_uses_profile_constraints_and_surfaces_optional_dependency ... ok
+test install_interactive_prompt_accepts_yes_from_stdin ... ok
+test install_single_mod_installs_required_dependency_but_not_optional_or_beta ... ok
+test install_dry_run_does_not_write_jars ... ok
+test install_searches_query_first_and_yes_accepts_plan ... ok
+test install_file_parses_comments_into_one_plan ... ok
+test missing_download_url_errors_without_partial_install ... ok
+test search_groups_same_logical_mod_across_provider_candidates_and_excludes_beta ... ok
+test profile_add_use_show_and_list_work_with_isolated_paths ... ok
+test remove_and_autoremove_preserve_required_deps_until_no_manual_roots_need_them ... ok
+test status_detects_missing_changed_and_untracked_jars_without_deleting_untracked ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/pkg_cmd.rs (target/debug/deps/pkg_cmd-ecffec23715de0d5)
+
+running 29 tests
+test pkg_download_without_yes_bails ... ok
+test do_auto_selects_single_mcm_in_cwd ... ok
+test pkg_download_with_yes_proceeds ... ok
+test pkg_dl_without_yes_bails ... ok
+test do_with_no_scripts_prints_nothing_to_execute ... ok
+test do_without_yes_bails ... ok
+test pkg_info_still_works ... ok
+test pkg_dl_alias_matches_download ... ok
+test do_with_yes_executes_scripts_from_game_root ... ok
+test pkg_install_duplicate_asset_aborts_without_partial ... ok
+test pkg_install_empty_package_succeeds ... ok
+test pkg_install_with_yes_records_lock_entry ... ok
+test pkg_install_without_yes_bails_in_non_tty ... ok
+test pkg_install_with_yes_writes_mod_jars_and_assets ... ok
+test pkg_install_without_script_no_warning ... ok
+test pkg_install_with_script_warns_on_stderr_with_yes ... ok
+test pkg_list_on_fresh_config_is_empty ... ok
+test pkg_list_never_prompts_without_yes ... ok
+test pkg_share_without_yes_bails ... ok
+test pkg_make_excludes_secrets_by_default ... ok
+test pkg_make_creates_valid_json ... ok
+test pkg_share_with_yes_prints_not_implemented ... ok
+test pkg_list_after_install_shows_entry ... ok
+test top_install_auto_selects_smallest_mcm ... ok
+test top_install_rejects_mc_smart_target ... ok
+test top_install_no_mcm_in_cwd_errors ... ok
+test top_install_rejects_raw_mod_name ... ok
+test top_install_without_yes_bails ... ok
+test top_install_with_target_installs ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/server.rs (target/debug/deps/server-31642ffbb24f08be)
+
+running 12 tests
+test share_pkg_download_unknown_slug_returns_404 ... ok
+test health_returns_ok_and_mode_source ... ok
+test health_returns_ok_and_mode_both ... ok
+test health_returns_ok_and_mode_share ... ok
+test both_mode_both_route_sets_enabled ... ok
+test share_mode_share_routes_enabled_return_empty_list ... ok
+test share_mode_source_routes_disabled ... ok
+test source_mode_source_routes_enabled_return_404_when_unconfigured ... ok
+test source_mode_share_routes_disabled ... ok
+test share_publish_without_auth_returns_401 ... ok
+test unknown_api_path_returns_json_not_found ... ok
+test spa_dashboard_route_serves_index_html ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/server_auth.rs (target/debug/deps/server_auth-ac2d3fd6ab336a08)
+
+running 16 tests
+test oidc_start_returns_auth_url ... ok
+test oidc_session_returns_401_without_token ... ok
+test oidc_callback_issues_session_token ... ok
+test non_json_content_type_returns_415 ... ok
+test oidc_session_returns_owner_for_valid_token ... ok
+test delete_by_another_user_returns_403 ... ok
+test publish_with_invalid_token_returns_401 ... ok
+test publish_without_auth_returns_401 ... ok
+test publish_with_valid_session_succeeds ... ok
+test second_publish_same_day_returns_429 ... ok
+test publish_after_delete_same_day_still_429 ... ok
+test deleted_slug_reserved_for_two_days ... ok
+test update_by_another_user_returns_403 ... ok
+test update_on_next_day_succeeds ... ok
+test sixth_package_returns_409_limit ... ok
+test oversized_body_returns_413 ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.37s
+
+     Running tests/server_storage.rs (target/debug/deps/server_storage-610f5ed97c80e7ac)
+
+running 14 tests
+test storage_duplicate_slug_returns_conflict ... ok
+test storage_delete_reserves_slug_for_two_days ... ok
+test storage_persists_across_reopen ... ok
+test storage_refuses_data_dir_under_x ... ok
+test storage_rejects_invalid_slug ... ok
+test storage_rejects_secret_payload ... ok
+test storage_update_overwrites_without_backup ... ok
+test http_list_empty_returns_200 ... ok
+test http_publish_without_auth_returns_401 ... ok
+test storage_update_owner_mismatch_returns_forbidden ... ok
+test http_delete_owner_mismatch_returns_403 ... ok
+test http_update_owner_mismatch_returns_403 ... ok
+test http_publish_duplicate_returns_409 ... ok
+test http_publish_download_update_delete_roundtrip_with_clock ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+
+     Running tests/source_cmd.rs (target/debug/deps/source_cmd-48b8df52f2b71cdb)
+
+running 12 tests
+test fresh_config_has_no_sources_on_disk ... ok
+test source_add_without_yes_bails_in_non_tty ... ok
+test source_info_unknown_errors ... ok
+test source_add_persists_to_config_toml ... ok
+test source_add_duplicate_bails ... ok
+test source_added_in_one_config_not_in_another ... ok
+test source_list_on_fresh_config_is_empty ... ok
+test source_remove_unknown_errors ... ok
+test source_add_with_yes_succeeds_and_appears_in_list ... ok
+test source_remove_removes_from_list ... ok
+test source_list_multiple_sources_in_alphabetical_order ... ok
+test source_info_prints_url_and_trusted_status ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/source_index.rs (target/debug/deps/source_index-17f916e4fc9b4339)
+
+running 13 tests
+test parse_rejects_malformed_json ... ok
+test parse_rejects_secret_field ... ok
+test parse_rejects_unknown_schema_version ... ok
+test parse_valid_minimal_index_via_public_api ... ok
+test parse_rejects_invalid_source_id ... ok
+test parse_full_index_preserves_capabilities_and_actions ... ok
+test source_info_non_http_url_falls_back_to_stored_record ... ok
+test source_info_unreachable_http_shows_unavailable_note ... ok
+test source_info_fetches_and_displays_index_metadata ... ok
+test source_info_malformed_index_does_not_mutate_config ... ok
+test source_info_with_actions_shows_declared_not_executed ... ok
+test source_provider_resolves_package_from_served_index ... ok
+test source_info_with_malformed_index_shows_error_without_crash ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/source_service.rs (target/debug/deps/source_service-0f55b12e6513943f)
+
+running 12 tests
+test get_index_serves_configured_index_json ... ok
+test get_blob_serves_raw_bytes ... ok
+test get_meta_returns_404_for_unknown_slug ... ok
+test get_blob_returns_404_for_missing ... ok
+test get_index_returns_404_when_not_configured ... ok
+test get_meta_returns_package_metadata ... ok
+test source_routes_disabled_in_share_mode ... ok
+test source_routes_work_in_both_mode ... ok
+test pkg_install_from_source_external_url_succeeds ... ok
+test pkg_install_from_source_hosted_blob_succeeds ... ok
+test source_add_local_service_index_succeeds ... ok
+test pkg_install_hash_mismatch_aborts_as_corruption_not_hostile ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+   Doc-tests mcm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+### RESUME cargo fmt --check
+
+### RESUME cargo clippy --all-targets --all-features -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.46s
+
+### RESUME static policy grep
+Turnstile: none
+turnstile: none
+admin token: none
+admin-token: none
+admin_token: none
+emoji codepoints: none
+
+### RESUME browser QA preflight health
+curl: (7) Failed to connect to 127.0.0.1 port 18950 after 0 ms: Couldn't connect to server
+
+
+### RESUME browser QA server restart
+QA_DIR=/tmp/mcm-task16-resume-1AqODQ
+QA_PORT=18951
+SERVER_PID=570702
+{"mode":"both","status":"ok"}
+
+### RESUME browser QA action log and screenshots
+[
+  {"action":"open login","url":"http://127.0.0.1:18951/","artifact":".omo/evidence/task-16-375-login.png"},
+  {"action":"click Sign in with OIDC","result":"mock /api/auth/oidc/start + callback completed; redirected to /dashboard; owner browser-user visible"},
+  {"action":"dashboard empty state","artifact":".omo/evidence/task-16-375-dashboard-empty.png"},
+  {"action":"malformed publish form","input":"{bad json","result":"Content is not valid JSON. error displayed"},
+  {"action":"publish sample package","slug":"task-sixteen-sample","result":"dashboard package row visible"},
+  {"action":"detail commands","result":"bootstrap and package install commands visible; copy buttons clicked","artifact":".omo/evidence/task-16-768-detail-commands.png"},
+  {"action":"same-day update","result":"Daily publish limit reached error displayed","artifact":".omo/evidence/task-16-1280-update-daily-limit.png"},
+  {"action":"delete package","result":"confirm accepted; dashboard empty state returned","artifact":".omo/evidence/task-16-dashboard-after-delete-snapshot.md"}
+]
+
+Screenshots:
+.omo/evidence/task-16-375-login.png
+.omo/evidence/task-16-375-dashboard-empty.png
+.omo/evidence/task-16-768-detail-commands.png
+.omo/evidence/task-16-1280-update-daily-limit.png
+Console errors artifact: .omo/evidence/task-16-console-errors.txt
+
+### RESUME browser QA separate test-day reset before allowed update
+reset pushes in /tmp/mcm-task16-resume-1AqODQ/mcm-share.db
+
+### RESUME browser QA separate test-day reset before allowed update submit
+reset pushes in /tmp/mcm-task16-resume-1AqODQ/mcm-share.db
+
+### RESUME browser QA allowed update action log append
+[
+  {
+    "action": "open login",
+    "url": "http://127.0.0.1:18951/",
+    "artifact": ".omo/evidence/task-16-375-login.png"
+  },
+  {
+    "action": "click Sign in with OIDC",
+    "result": "mock /api/auth/oidc/start + callback completed; redirected to /dashboard; owner browser-user visible"
+  },
+  {
+    "action": "dashboard empty state",
+    "artifact": ".omo/evidence/task-16-375-dashboard-empty.png"
+  },
+  {
+    "action": "malformed publish form",
+    "input": "{bad json",
+    "result": "Content is not valid JSON. error displayed"
+  },
+  {
+    "action": "publish sample package",
+    "slug": "task-sixteen-sample",
+    "result": "dashboard package row visible"
+  },
+  {
+    "action": "detail commands",
+    "result": "bootstrap and package install commands visible; copy buttons clicked",
+    "artifact": ".omo/evidence/task-16-768-detail-commands.png"
+  },
+  {
+    "action": "same-day update",
+    "result": "Daily publish limit reached error displayed",
+    "artifact": ".omo/evidence/task-16-1280-update-daily-limit.png"
+  },
+  {
+    "action": "delete package",
+    "result": "confirm accepted; dashboard empty state returned",
+    "artifact": ".omo/evidence/task-16-dashboard-after-delete-snapshot.md"
+  },
+  {
+    "action": "separate test-day boundary",
+    "result": "push timestamps reset to 1970 in isolated QA SQLite DB to simulate next-day/window"
+  },
+  {
+    "action": "allowed update success",
+    "slug": "task-sixteen-update-ok",
+    "result": "published 1.0.0, reset push window, updated to 1.0.1, dashboard showed version 1.0.1"
+  }
+]
+
+### RESUME visual QA objective screenshot file checks
+.omo/evidence/task-16-375-login.png: exists=True size=16711
+.omo/evidence/task-16-375-dashboard-empty.png: exists=True size=19583
+.omo/evidence/task-16-768-detail-commands.png: exists=True size=58794
+.omo/evidence/task-16-1280-update-daily-limit.png: exists=True size=49982
+bun unavailable; skipped bundled image-diff
+
+### RESUME visual QA verdict
+Tooling: visual-qa skill loaded; screenshots inspected with look_at because oracle subagent tools are unavailable in this harness. Bundled self image-diff/file checks above confirm screenshot artifacts are present; no reference mock was provided, so pixel diff is not a fidelity gate.
+Verdict: GOOD
+- Design system real vs faked: good; rendered DOM controls/cards/forms, not pasted images.
+- Features work: good; browser action log covers mock OIDC login, publish, malformed JSON error, detail commands/copy buttons, daily-limit update error, allowed next-day update, and delete.
+- Responsive/resize: good at 375/768/1280; no obvious horizontal overflow or clipping.
+- Alpha/transparency: no unexpected black/opaque fills observed.
+- Visual fidelity to intent: minimal polished black/white token-based UI matches DESIGN.md/getdesign direction.
+- CJK precision: not applicable; UI text is English-only in this task.
+
+### RESUME cleanup receipt
+Stopping SERVER_PID=570702 QA_PORT=18951 QA_DIR=/tmp/mcm-task16-resume-1AqODQ
+cleanup_status=OK pid stopped
+port_status=OK refused
+server_log:
+mcm serve listening on 127.0.0.1:18951 mode=both
+playwright_status=browser_close called; no open tabs reported
+
+### RESUME console note
+`task-16-console-errors.txt` contains one expected 429 Too Many Requests entry from the intentional daily publish/update limit error path.
+
+### RESUME ultraqa classes
+- stale_state: PASS — reran historical failing SPA route test and full `tests/server.rs`; current route state is green.
+- dirty_worktree: scoped manually to Task 16 files; no cleanup-only or unrelated edits intentionally made.
+- flaky_tests: PASS — focused server route, `tests/server.rs`, and full `cargo test` passed in resume verification.
+- misleading_success_output: PASS — browser action log verifies real UI/API behavior, not only static screenshots.
+- malformed_input: PASS — browser publish form showed `Content is not valid JSON.` before successful publish.
+- non-applicable: CJK precision not applicable because Task 16 UI text is English-only.

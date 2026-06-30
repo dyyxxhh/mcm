@@ -1,0 +1,1 @@
+No HMCL or PCL code copied. Mojang JSON structure is a public format documented at:

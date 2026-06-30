@@ -1,0 +1,142 @@
+Task 12: Build Rust HTTP service shell with share/source/both modes
+===================================================================
+
+Date: 2026-06-26
+Status: COMPLETE — all acceptance criteria pass, full suite green.
+
+## Acceptance criteria checklist
+
+- [x] NEW: src/server/ directory with mod.rs, share.rs, source.rs, config.rs (split, each <250 pure LOC)
+- [x] NEW: tests/server.rs (integration tests)
+- [x] MODIFIED: Cargo.toml (added axum 0.8, tokio 1 with rt-multi-thread+macros+signal+net, tower 0.5, tower-http 0.6)
+- [x] MODIFIED: src/lib.rs (added `mod server;` + docstring entry + `#[doc(hidden)] pub use server::__test_router`)
+- [x] MODIFIED: src/cli.rs (added `Serve { mode, bind }` subcommand; default mode=both, default bind=127.0.0.1:8950)
+- [x] MODIFIED: src/app.rs (wired `Serve` dispatch to `server::run_server()` via a dedicated tokio multi-thread runtime)
+- [x] `mcm serve --mode share --bind 127.0.0.1:8950` starts an HTTP server (verified on real binary)
+- [x] GET /health returns JSON {"status":"ok","mode":"share"} with 200 (verified)
+- [x] share mode: share routes enabled (501 stub), source routes return 404 "source mode disabled" (verified)
+- [x] source mode: source routes enabled (501 stub), share routes return 404 "share mode disabled" (verified)
+- [x] both mode: both route sets enabled (verified)
+- [x] Default bind is 127.0.0.1:8950 — does NOT bind 0.0.0.0 (verified via `mcm serve --help` default)
+- [x] PM2-friendly: blocking foreground process, logs to stdout ("mcm serve listening on <addr> mode=<mode>"), reads env (MCM_SHARE_DATA_DIR, MCM_OIDC_*)
+- [x] Graceful shutdown on Ctrl+C / SIGTERM (verified: SIGTERM -> exit code 0)
+- [x] Shell only — stub handlers return 501 Not Implemented with {"error":"not implemented","todo":"task-NN"}
+- [x] MCM_SHARE_DATA_DIR validation: refuses /x (verified: /x/share and /x both rejected with clear error)
+- [x] cargo test --test server passes (11 tests)
+- [x] cargo test (full suite) stays green (293 tests total: 48+44+21+6+28+7+17+30+14+13+29+11+12+13 + 0 doctests)
+- [x] cargo fmt --check clean
+- [x] cargo clippy --all-targets --all-features -- -D warnings clean
+
+## QA scenarios
+
+### Happy path: health check returns mode
+```
+$ MCM_SHARE_DATA_DIR=/tmp/mcm-qa-share ./target/debug/mcm serve --mode share --bind 127.0.0.1:8951
+mcm serve listening on 127.0.0.1:8951 mode=share
+
+$ curl -s http://127.0.0.1:8951/health
+{"mode":"share","status":"ok"}            # HTTP 200
+```
+
+### Failure path: wrong mode disables routes
+```
+# share mode -> source routes disabled
+$ curl -s http://127.0.0.1:8951/api/source/index
+{"error":"source mode disabled","todo":"task-15"}   # HTTP 404
+
+# source mode -> share routes disabled (symmetric)
+$ curl -s http://127.0.0.1:8952/api/share/list   (with --mode source)
+{"error":"share mode disabled","todo":"task-13"}   # HTTP 404
+```
+
+### Stub path: enabled routes return 501
+```
+$ curl -s http://127.0.0.1:8951/api/share/list
+{"error":"not implemented","todo":"task-13"}        # HTTP 501
+
+$ curl -s -X POST http://127.0.0.1:8951/api/share/pkg
+{"error":"not implemented","todo":"task-14"}        # HTTP 501
+```
+
+### Config validation: /x rejection
+```
+$ MCM_SHARE_DATA_DIR=/x/share ./target/debug/mcm serve --mode share --bind 127.0.0.1:8953
+Error: MCM_SHARE_DATA_DIR must not be under /x (got /x/share); server storage must live outside /x per the plan
+```
+
+### Graceful shutdown
+```
+$ kill -TERM <pid>
+# server exits with code 0 (clean shutdown via tokio::signal SIGTERM handler)
+```
+
+## Files touched
+
+NEW:
+- src/server/mod.rs      (127 pure LOC) — router assembly, health, disabled_fallback, run_server, shutdown_signal, __test_router
+- src/server/config.rs   ( 86 pure LOC) — ServeMode, ServerConfig::from_env, /x validation, parse_mode + 4 inline unit tests
+- src/server/share.rs    ( 30 pure LOC) — share route subtree (stubs -> task-13/task-14)
+- src/server/source.rs   ( 30 pure LOC) — source route subtree (stubs -> task-15)
+- tests/server.rs        (168 pure LOC) — 11 integration tests on random-port real HTTP server
+
+MODIFIED:
+- Cargo.toml             — added axum 0.8 (http1,json,tokio,tower-log), tokio 1 (rt-multi-thread,macros,signal,net), tower 0.5, tower-http 0.6 (trace)
+- src/lib.rs             — `mod server;` + docstring entry + `#[doc(hidden)] pub use server::__test_router`
+- src/cli.rs             — `Serve { mode: String, bind: SocketAddr }` variant (default mode=both, default bind=127.0.0.1:8950)
+- src/app.rs             — `Serve` dispatch: builds tokio multi-thread runtime, block_on(run_server)
+
+## ServerConfig public API
+
+```rust
+// src/server/config.rs (pub(crate) — internal to the crate)
+pub(crate) enum ServeMode { Share, Source, Both }
+impl ServeMode {
+    fn share_enabled(self) -> bool;   // true for Share | Both
+    fn source_enabled(self) -> bool;  // true for Source | Both
+    fn as_str(self) -> &'static str;  // "share" | "source" | "both"
+}
+
+pub(crate) struct ServerConfig {
+    pub(crate) data_dir: PathBuf,                  // MCM_SHARE_DATA_DIR, default /var/lib/mcm-share
+    pub(crate) oidc_issuer: Option<String>,        // MCM_OIDC_ISSUER (task 14)
+    pub(crate) oidc_client_id: Option<String>,     // MCM_OIDC_CLIENT_ID (task 14)
+    pub(crate) oidc_client_secret: Option<String>,  // MCM_OIDC_CLIENT_SECRET (task 14, never logged)
+}
+impl ServerConfig {
+    pub(crate) fn from_env() -> Result<Self>;      // validates data_dir not under /x
+}
+
+pub(crate) fn parse_mode(s: &str) -> Result<ServeMode>;  // "share"|"source"|"both"
+
+// src/server/mod.rs
+pub(crate) async fn run_server(mode: ServeMode, bind: SocketAddr) -> Result<()>;
+pub(crate) fn build_router(state: ServerState) -> axum::Router;  // used by tests via __test_router
+#[doc(hidden)] pub fn __test_router(mode_str: &str) -> Result<axum::Router>;  // test-only
+```
+
+## Design decisions
+
+1. **Axum 0.8 + tokio 1 multi-thread runtime.** The CLI is sync (reqwest blocking); the server is async. `app::run` builds a dedicated `tokio::runtime::Builder::new_multi_thread().enable_all()` for the `Serve` command only, so the blocking CLI paths are untouched. Both runtimes coexist in the same crate.
+
+2. **Route structure.** `/health` always on. `/api/share/*` mounted only when `share_enabled()`. `/api/source/*` mounted only when `source_enabled()`. A single `fallback` handler catches disabled route prefixes (returns 404 `{"error":"<which> mode disabled","todo":"task-NN"}`) and truly unknown paths (404 `{"error":"not found"}`).
+
+3. **Stub boundaries for downstream tasks.**
+   - task 13 (storage): `share::list_packages`, `share::download_package` return 501 `{"todo":"task-13"}`. `ServerConfig.data_dir` is parsed + validated but NOT created/used yet (marked `#[allow(dead_code, reason="read by task 13")]`).
+   - task 14 (OIDC): `share::publish_package` returns 501 `{"todo":"task-14"}`. OIDC env fields are read into `ServerConfig` but NOT used (same allow).
+   - task 15 (source routes): `source::index`, `source::meta`, `source::blob` return 501 `{"todo":"task-15"}`.
+
+4. **Default bind safety.** `--bind` defaults to `127.0.0.1:8950` via clap `default_value`. The plan's "do not bind 0.0.0.0 by default" is satisfied — a user must explicitly pass `--bind 0.0.0.0:PORT` to bind publicly.
+
+5. **Graceful shutdown.** `tokio::select!` over `signal::ctrl_c()` and (on unix) `signal::unix::SignalKind::terminate()`. Whichever fires first triggers axum's `with_graceful_shutdown`, which drains in-flight requests and exits 0. Verified: `kill -TERM <pid>` -> exit code 0.
+
+6. **Test isolation.** `tests/server.rs` uses `__test_router` (a `#[doc(hidden)] pub` helper) to build the router with a stub config, then binds to `127.0.0.1:0` (random port) via `tokio::net::TcpListener`. No hardcoded ports. Each test spawns its own server and drives it with `reqwest::blocking::Client` inside `spawn_blocking` (blocking client inside tokio test). 11 tests cover: health per mode (3), share-mode gating (2), source-mode gating (2), both-mode (1), unknown path (1), share stubs (2, download+publish).
+
+7. **No new dependencies on the blocking CLI path.** `axum`/`tokio`/`tower`/`tower-http` are added to `[dependencies]` but only the `serve` subcommand pulls them into the call graph. Existing CLI tests remain green (293 total).
+
+## Test counts
+
+- tests/server.rs: 11 integration tests (all pass)
+- src/server/config.rs: 4 inline unit tests (share/source/both mode flags + parse_mode roundtrip)
+- Full suite: 293 tests pass (was 278 before this task; +15 new)
+- cargo fmt --check: clean
+- cargo clippy --all-targets --all-features -- -D warnings: clean

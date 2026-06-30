@@ -1,0 +1,62 @@
+Task 2: Release artifact and curl-bash route repair — Evidence
+==============================================================
+Date: 2026-06-28
+
+== Changes Summary ==
+
+1. ALLOWED_RELEASE_FILES updated (src/server/mod.rs:209-210):
+   OLD: ["mcm-x86_64-linux.tar.gz", "mcm-x86_64-linux.tar.gz.sha256"]
+   NEW: ["mcm-linux-x86_64", "mcm-linux-x86_64.sha256"]
+
+2. Bootstrap script rewritten (src/server/install/bootstrap-script.sh):
+   - Changed from #!/bin/sh + set -eu to #!/bin/bash + set -euo pipefail
+   - Downloads mcm-linux-x86_64 (bare binary, not tar.gz)
+   - Downloads mcm-linux-x86_64.sha256 checksum file
+   - Verifies with sha256sum -c (with shasum/openssl fallbacks)
+   - Installs to $HOME/.local/bin or MCM_INSTALL_DIR
+   - Does NOT auto-run sudo — prints exact command for user
+   - DRY_RUN support preserved
+
+3. Package install script updated (src/server/install/pkg.rs):
+   - Changed from #!/bin/sh + set -eu to #!/bin/bash + set -euo pipefail
+   - Changed bootstrap pipe from | sh to | bash
+   - Slug safely single-quoted in shell variable
+
+4. Unit tests updated (src/server/install/bootstrap.rs):
+   - shebang test: #!/bin/bash
+   - env overrides: MCM_INSTALL_DIR (not MCM_INSTALL_PREFIX)
+   - sudo test: prints command, does NOT auto-run sudo/pkexec
+
+5. Integration tests added (tests/server_install.rs):
+   - release_route_serves_allowed_binary: serves release/mcm-linux-x86_64
+   - release_route_serves_allowed_checksum: serves .sha256 file
+   - release_route_rejects_path_traversal: 404 for ../../../etc/passwd etc.
+   - release_route_rejects_unknown_filename: 404 for old tar.gz names
+   - release_route_returns_404_for_missing_file: 404 when file absent
+
+6. Integration tests updated (tests/server_pkg_install.rs):
+   - shebang assertions updated to #!/bin/bash
+
+7. Pre-existing compilation errors fixed:
+   - src/server/mod.rs: __test_router_full missing web_dir → resolve_web_dir()
+   - src/server/mod.rs: __test_router_with_web_dir unused var warning
+   - src/server/config.rs: parse_auth_mode non-exhaustive match (NotUnicode)
+   - src/server/config.rs: parse_auth_mode invalid values now rejected
+   - src/server/config.rs: Debug test assertion "AuthMode" → "auth_mode"
+
+== Verification ==
+
+cargo clippy --all-targets --all-features -- -D warnings: PASS (0 warnings)
+cargo test --all-targets --all-features: 154 unit tests PASSED
+  - characterization.rs: 1 pre-existing snapshot mismatch (warning format), unrelated to this task
+
+== Security Properties ==
+
+- Path traversal rejected: /release/../../etc/passwd → 404
+- Unknown filenames rejected: old tar.gz names → 404
+- Only allowlisted filenames served: mcm-linux-x86_64, mcm-linux-x86_64.sha256
+- Package slug validated via validate_package_name (only [a-z0-9-])
+- Slug single-quoted in shell script (no injection)
+- Bootstrap does NOT pipe unverified bytes to shell
+- Bootstrap uses staged writes: download to temp → verify → install
+- Bootstrap does NOT auto-run sudo — prints command for user

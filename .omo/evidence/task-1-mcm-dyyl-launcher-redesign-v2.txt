@@ -1,0 +1,84 @@
+Task 1: Server asset roots and PM2 cwd independence
+===================================================
+Status: COMPLETE
+
+## Changes Made
+
+### src/server/config.rs
+- Added `web_dir: PathBuf` field to `ServerConfig`
+- Added `resolve_web_dir()` function with 3-tier resolution:
+  1. MCM_WEB_DIR env var (explicit override)
+  2. Walk ancestors of current_exe() looking for web/ subdirectory (up to 5 levels)
+  3. Cwd-relative web/ fallback with warning
+- Added `is_valid_web_dir()` helper that checks for index.html presence
+- Updated Debug impl to include web_dir
+- Updated from_env() to call resolve_web_dir()
+- Updated test helper to include web_dir field
+
+### src/server/mod.rs
+- Added `web_dir()` accessor to ServerState
+- Updated `build_router()` to use `state.web_dir().join(...)` for ServeFile paths
+- Changed `spa_index()` to take `State<ServerState>` and read web_dir from config
+- Updated all test helpers (__test_router_full, __test_router_with_mock_user) to include web_dir
+- Added new `__test_router_with_web_dir()` test helper for explicit web_dir injection
+- Added re-export of `resolve_web_dir` from config module
+
+### src/lib.rs
+- Added `pub use server::__test_router_with_web_dir` re-export
+
+### tests/server.rs
+- Added `static_files_served_regardless_of_cwd` test:
+  - Builds router with explicit web_dir pointing to repo's web/ directory
+  - Verifies /index.html returns 200 with correct HTML content
+  - Verifies /dashboard (SPA fallback) returns 200 with index.html content
+  - Uses CARGO_MANIFEST_DIR to find web/ reliably regardless of cwd
+
+## Pre-existing Fixes (clippy)
+- src/i18n.rs: Used #[derive(Default)] with #[default] attribute instead of manual impl
+- src/i18n.rs: Renamed `from_str` to `from_input` to avoid std::str::FromStr confusion
+- src/runtime_cmd.rs: Removed needless borrow on display_version()
+- Updated callers of Lang::from_str to Lang::from_input in app.rs and main.rs
+
+## Verification Evidence
+
+### cargo fmt --check: PASS (no output)
+
+### cargo clippy --all-targets --all-features -- -D warnings: PASS
+```
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.96s
+```
+
+### cargo test --lib --all-features: PASS
+```
+test result: ok. 146 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+### cargo test --test server --all-features: PASS
+```
+running 13 tests
+test share_pkg_download_unknown_slug_returns_404 ... ok
+test share_publish_without_auth_returns_401 ... ok
+test source_mode_share_routes_disabled ... ok
+test health_returns_ok_and_mode_source ... ok
+test share_mode_source_routes_disabled ... ok
+test share_mode_share_routes_enabled_return_empty_list ... ok
+test both_mode_both_route_sets_enabled ... ok
+test health_returns_ok_and_mode_both ... ok
+test health_returns_ok_and_mode_share ... ok
+test source_mode_source_routes_enabled_return_404_when_unconfigured ... ok
+test spa_dashboard_route_serves_index_html ... ok
+test unknown_api_path_returns_json_not_found ... ok
+test static_files_served_regardless_of_cwd ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+```
+
+### Pre-existing failure (NOT from this task)
+characterization.rs::cloud_info_prints_selected_artifact_and_all_dependency_kinds
+This tests warning message format which changed in a prior commit. Not related to task 1.
+
+## Architecture Notes
+- web_dir is always a PathBuf (non-optional), resolved at ServerConfig construction time
+- resolve_web_dir() never panics - always returns a path (may be cwd-relative fallback)
+- Test helper __test_router_with_web_dir() enables testing with explicit web_dir without env var race conditions
+- No new dependencies added to Cargo.toml

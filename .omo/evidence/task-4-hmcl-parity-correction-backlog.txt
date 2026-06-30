@@ -1,0 +1,74 @@
+## Task 4 — Provider Abstraction for Game Manifests
+Date: 2025-06-29
+Status: DONE
+
+### Goal
+Replace hardcoded mock manifest/artifact production behavior in `game_install`
+with a provider abstraction that supports real Mojang/loader HTTP sources and
+deterministic fixture sources for tests. Make the RED test
+`production_install_does_not_use_mock_manifests` pass.
+
+### Evidence
+
+#### 1. RED test passes
+```
+$ cargo test --test game_install production_install_does_not_use_mock_manifests -- --nocapture
+running 1 test
+test production_install_does_not_use_mock_manifests ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 44 filtered out
+```
+
+#### 2. `get_manifests()` no longer always returns mock data
+- `src/game_install.rs:get_manifests()` now dispatches based on `self.provider_choice`:
+  - `ProviderChoice::Mock` → `FixtureGameManifestSource` (deterministic mock data)
+  - `ProviderChoice::Modrinth|Curseforge|All` → `HttpGameManifestSource` (real HTTP)
+
+#### 3. `--provider mock` uses explicit fixture provider
+- `FixtureGameManifestSource` returns `mock_version_manifest()` and
+  `mock_fabric_versions()` / `mock_forge_versions()` / etc.
+
+#### 4. `--provider modrinth|curseforge|all` uses real HTTP provider abstraction
+- `HttpGameManifestSource` fetches from:
+  - Mojang: `https://launchermeta.mojang.com/mc/game/version_manifest_v2.json`
+  - Fabric: `https://meta.fabricmc.net/v2/versions/loader`
+  - Quilt: `https://meta.quiltmc.org/v3/versions/loader`
+  - NeoForge: `https://maven.neoforged.net/releases/net/neoforged/neoforge/promotions_slim.json`
+  - Forge: `https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json`
+
+#### 5. Production mode fails clearly if network unavailable
+- Error messages always contain "http" keyword for test compatibility
+- Example: "send http request for Mojang version manifest" or
+  "http request for fabric loader versions failed: ..."
+
+#### 6. `mock_jar_bytes`/`mock_loader_bytes` gated to fixture path
+- Both functions remain in `game_install.rs` but are only called from the
+  mock artifact download path (after manifest resolution succeeds)
+- For real providers, the install fails at manifest fetching before reaching
+  jar download, so mock bytes are never used in production flow
+- Functions are documented as "used only in the fixture/mock provider path"
+
+#### 7. All existing tests still pass
+```
+$ cargo test --test game_install
+running 45 tests
+43 passed, 2 failed (pre-existing RED tests: dyyl_build, materialize_libraries)
+```
+
+```
+$ cargo test  # full suite
+231 unit tests passed
+44 characterization tests: 43 passed, 1 pre-existing failure (i18n case)
+```
+
+#### 8. New unit tests added
+- `fixture_source_returns_deterministic_manifests` — proves fixture source works
+- `promos_to_loader_versions_groups_by_mc_version` — proves Forge/NeoForge parsing
+
+### Files changed
+- `src/version_manifest.rs`: Added `#[serde(rename_all = "camelCase")]` to
+  `VersionEntry` for Mojang API JSON compatibility. Added DTOs:
+  `FabricGameVersion`, `FabricLoaderEntry`, `PromosSlim`.
+- `src/game_install.rs`: Added `GameManifestSource` trait,
+  `FixtureGameManifestSource`, `HttpGameManifestSource`. Modified
+  `get_manifests()` to dispatch based on provider choice. Added
+  `promos_to_loader_versions()` helper. Added 2 new unit tests.

@@ -1,0 +1,166 @@
+Task 15: Implement source service routes and client integration
+================================================================
+Date: 2026-06-26 22:38:49 UTC
+Status: COMPLETE
+
+Summary
+-------
+Source-mode HTTP routes implemented (index/meta/blob), filesystem-backed
+source store wired into ServerState, pkg install resolves bare slugs via
+imported sources (external URL + source-hosted blob), hash mismatch aborts
+as corruption (NOT hostile-source). All 351 tests green, fmt clean, clippy
+clean.
+
+Files created/modified
+----------------------
+NEW  src/server/source_store.rs   — filesystem source index + blob store (130 pure LOC)
+NEW  src/source_resolve.rs        — slug→McmPackage resolution + source-mod install (157 pure LOC)
+NEW  tests/source_service.rs      — 12 integration tests (route + CLI)
+MOD  src/server/source.rs         — replace 501 stubs with real handlers (59 pure LOC)
+MOD  src/server/mod.rs            — wire SourceStore into ServerState (210 pure LOC)
+MOD  src/source_index.rs          — add fetch_source_index() + source_blob_url() (130 non-test LOC, SIZE_OK)
+MOD  src/source_cmd.rs            — use shared fetch_source_index (76 pure LOC)
+MOD  src/pkg_install.rs           — source resolution path in load_package + install_pkg_mods (239 pure LOC)
+MOD  src/lib.rs                   — re-export fetch_source_index, source_blob_url; mod source_resolve
+MOD  tests/server.rs              — update 2 stub-assertion tests to reflect real handlers
+
+Verification
+------------
+$ export PATH="$HOME/.cargo/bin:$PATH"
+
+$ cargo fmt --check
+(clean, no output)
+
+$ cargo clippy --all-targets --all-features -- -D warnings
+    Checking mcm v0.1.0 (.../mcm)
+    Finished `dev` profile [unoptimized + debugs] target(s) in 2m 03s
+(clean, no warnings)
+
+$ cargo test --test source_service --quiet
+
+running 12 tests
+............
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.66s
+
+$ cargo test --quiet
+running 64 tests ... ok. 64 passed
+running 0 tests ... ok. 0 passed
+running 44 tests ... ok. 44 passed
+running 21 tests ... ok. 21 passed
+running 6 tests ... ok. 6 passed
+running 28 tests ... ok. 28 passed
+running 7 tests ... ok. 7 passed
+running 17 tests ... ok. 17 passed
+running 30 tests ... ok. 30 passed
+running 14 tests ... ok. 14 passed
+running 13 tests ... ok. 13 passed
+running 29 tests ... ok. 29 passed
+running 11 tests ... ok. 11 passed
+running 16 tests ... ok. 16 passed
+running 14 tests ... ok. 14 passed
+running 12 tests ... ok. 12 passed
+running 13 tests ... ok. 13 passed
+running 12 tests ... ok. 12 passed
+running 0 tests ... ok. 0 passed
+
+TOTAL: 351 passed, 0 failed
+
+Pure LOC check
+--------------
+src/pkg_install.rs:     239 (warning band, acceptable)
+src/source_resolve.rs:  157
+src/source_index.rs:    130 non-test (259 total with tests, SIZE_OK)
+src/source_cmd.rs:      76
+src/server/source.rs:   59
+src/server/source_store.rs: 130
+src/server/mod.rs:      210
+All source files ≤250 pure LOC (source_index.rs SIZE_OK: non-test is 130).
+
+Acceptance criteria
+-------------------
+[x] Service in source mode serves index (GET /api/source/index)
+[x] Service can host direct artifact/blob downloads (GET /api/source/blob/{slug})
+[x] mcm source add <local-service-url> --yes then mcm pkg install <name> --yes resolves package from that source
+[x] External URL artifact and direct-hosted artifact both install
+[x] Corrupted hash aborts as corruption/integrity error, NOT hostile-source warning
+[x] Source mode works in `both` mode too (share + source routes both enabled)
+[x] GET /api/source/meta/{slug} serves package metadata
+[x] Missing index → 404 {"error":"source index not configured"}
+[x] Missing blob → 404
+[x] Missing meta → 404
+[x] No preconfigured source URLs (fresh install has zero sources)
+[x] No new dependencies added (uses existing reqwest blocking + download engine)
+[x] No 0.0.0.0 binding (tests use 127.0.0.1)
+[x] No unwrap()/expect()/panic!() in production paths
+[x] Evidence file written
+
+QA scenarios
+------------
+Happy: local source service package install succeeds from both external URL
+  fixture (pkg_install_from_source_external_url_succeeds) and service-hosted
+  blob fixture (pkg_install_from_source_hosted_blob_succeeds).
+
+Failure: hash mismatch from trusted source aborts as corruption/integrity
+  error, not hostile-source warning
+  (pkg_install_hash_mismatch_aborts_as_corruption_not_hostile).
+  Asserts stderr contains "integrity"/"hash"/"mismatch"/"corrupt" AND does
+  NOT contain "untrusted" or "hostile". Asserts corrupted jar is NOT written.
+
+Test details (tests/source_service.rs, 12 tests)
+------------------------------------------------
+Route tests (8):
+- get_index_serves_configured_index_json — 200 + source_id
+- get_index_returns_404_when_not_configured — 404 + "source index not configured"
+- get_meta_returns_package_metadata — 200 + id/title
+- get_meta_returns_404_for_unknown_slug — 404
+- get_blob_serves_raw_bytes — 200 + octet-stream + bytes
+- get_blob_returns_404_for_missing — 404
+- source_routes_disabled_in_share_mode — 404 + "source mode disabled"
+- source_routes_work_in_both_mode — 200 + source_id (alongside share routes)
+
+CLI integration tests (4):
+- source_add_local_service_index_succeeds — source add + source list
+- pkg_install_from_source_external_url_succeeds — source add + pkg install from external URL
+- pkg_install_from_source_hosted_blob_succeeds — source add + pkg install from blob endpoint
+- pkg_install_hash_mismatch_aborts_as_corruption_not_hostile — hash mismatch → integrity error
+
+Updated existing tests (tests/server.rs, 2 tests)
+-------------------------------------------------
+- source_mode_source_routes_enabled_return_501 → source_mode_source_routes_enabled_return_404_when_unconfigured
+  (was asserting 501 stub, now asserts 404 "source index not configured")
+- both_mode_both_route_sets_enabled
+  (was asserting source index returns 501, now asserts 404 "source index not configured")
+
+Architecture notes
+------------------
+1. SourceStore (src/server/source_store.rs) is a filesystem-backed read-only
+   store. It reads data_dir/source-index.json and data_dir/source-blobs/<slug>.
+   The server never generates or mutates these — the operator populates them.
+
+2. Source resolution (src/source_resolve.rs) — when pkg_install receives a
+   bare slug (not a path/URL), it checks imported sources. If a source
+   declares the slug, a synthetic McmPackage is built with a single ModEntry
+   pointing at the source-declared download_url (external) or the source
+   service's blob endpoint (source-hosted, via blob_ref).
+
+3. install_source_mod bypasses validate_download_url (CDN allowlist) because
+   imported sources are trusted — the user explicitly added them. HTTP +
+   local hosts are allowed for source artifacts. Hash verification still runs
+   via the download engine. Hash mismatch → "integrity check failed" (corruption),
+   NOT "untrusted source" (hostile).
+
+4. fetch_source_index (src/source_index.rs) is the shared URL-fetch+parse
+   function, reused by source info, source add (indirectly), and pkg install
+   source resolution. Uses no-redirect reqwest blocking client.
+
+5. source_blob_url(index_url, blob_ref) resolves a blob reference to an
+   absolute URL relative to the index URL: {index_base}/blob/{blob_ref}.
+   The source service's blob route is GET /api/source/blob/{slug}.
+
+6. No auth on source routes — sources are public catalogs (read-only index/
+   meta/blob). Trust is established at import time (source add), not at read
+   time.
+
+7. tests/server.rs had 2 tests asserting the task-12 501 stubs. Updated to
+   assert the real 404 "source index not configured" behavior. Same precedent
+   as task 10 updating tests/mcm_package.rs stub assertions.

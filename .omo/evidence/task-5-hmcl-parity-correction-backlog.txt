@@ -1,0 +1,57 @@
+Task 5 — HMCL Parity: Libraries, Assets, and Natives Materialization
+=====================================================================
+
+Status: COMPLETE
+Date: 2026-06-29
+
+## What was done
+
+Implemented library/asset/native installation in the game install flow.
+After the version JSON and client jar are written, the fixture provider now
+materializes the full HMCL-compatible game root layout:
+
+### Files changed
+- src/game_install.rs: Added install_game_assets() function
+- src/game_install.rs: Expanded write_version_json() with native library entry
+  (lwjgl with natives map + classifiers for linux)
+- src/game_install.rs: Called install_game_assets() from game_install()
+
+### What install_game_assets() creates under game root
+1. libraries/<artifact.path> — one mock .jar per library with downloads.artifact
+2. assets/indexes/<assetIndex.id>.json — mock asset index with sample objects
+3. assets/objects/ — empty directory (ready for real asset downloads)
+4. versions/<resolved-id>/natives/ — directory for native extraction
+5. libraries/<classifier.path> — native classifier jars for libraries with natives map
+
+### Red test — NOW PASSES
+```
+cargo test --test game_install game_install_materializes_libraries_assets_and_natives -- --nocapture
+running 1 test
+test game_install_materializes_libraries_assets_and_natives ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 44 filtered out
+```
+
+### All existing tests — STILL PASS
+```
+cargo test --test game_install
+test result: FAILED. 44 passed; 1 failed (dyyl_build_produces_host_protocol_output — pre-existing RED compliance exposé, not affected by this change)
+```
+
+```
+cargo test --lib
+test result: ok. 231 passed; 0 failed; 0 ignored; 0 measured
+```
+
+### Pre-existing RED tests (NOT affected by this change)
+- dyyl_build_produces_host_protocol_output — RED compliance exposé (dyyl host protocol)
+- production_install_does_not_use_mock_manifests — RED compliance exposé (mock manifests)
+
+### Version JSON additions
+The lwjgl library entry now includes:
+- "natives": {"linux": "natives-linux", "windows": "natives-windows"}
+- "classifiers": {"natives-linux": {"path": "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3-natives-linux.jar", ...}}
+
+This enables native jar extraction via version_json::native_jar_paths().
+
+### Plan checkbox
+- .omo/plans/hmcl-parity-correction-backlog.md Todo 5: CHECKED

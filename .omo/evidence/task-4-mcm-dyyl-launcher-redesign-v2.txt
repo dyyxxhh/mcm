@@ -1,0 +1,133 @@
+Task 4: Real YY-ID/Casdoor OIDC flow — Evidence
+=================================================
+Date: 2026-06-28
+
+## 1. cargo clippy --all-targets --all-features -- -D warnings
+
+Result: PASS (exit 0, no warnings in our code)
+
+```
+$ cargo clippy --all-targets --all-features -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 32s
+(no clippy errors or warnings from auth module)
+```
+
+Note: pre-existing `bail!` errors in storage/helpers.rs are NOT from this task.
+
+## 2. cargo test --test server_auth
+
+Result: PASS (26/26 tests pass)
+
+```
+running 26 tests
+test oidc_invalid_state_fails ... ok
+test oidc_callback_issues_session_token ... ok
+test non_json_content_type_returns_415 ... ok
+test oidc_poll_complete_after_callback ... ok
+test oidc_logout_clears_session ... ok
+test delete_by_another_user_returns_403 ... ok
+test oidc_poll_unknown_login_id_returns_404 ... ok
+test oidc_session_returns_401_without_token ... ok
+test oidc_poll_pending_before_callback ... ok
+test oidc_replayed_state_fails ... ok
+test oidc_login_id_isolation_between_servers ... ok
+test oidc_poll_complete_is_one_shot ... ok
+test oidc_session_returns_owner ... ok
+test oidc_start_returns_login_id ... ok
+test oidc_start_returns_auth_url ... ok
+test deleted_slug_reserved_for_two_days ... ok
+test oidc_session_returns_owner_for_valid_token ... ok
+test publish_with_invalid_token_returns_401 ... ok
+test publish_without_auth_returns_401 ... ok
+test publish_after_delete_same_day_still_429 ... ok
+test second_publish_same_day_returns_429 ... ok
+test publish_with_valid_session_succeeds ... ok
+test update_on_next_day_succeeds ... ok
+test update_by_another_user_returns_403 ... ok
+test sixth_package_returns_409_limit ... ok
+test oversized_body_returns_413 ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored
+```
+
+## 3. cargo test --lib server::auth::oidc
+
+Result: PASS (9/9 unit tests)
+
+```
+running 9 tests
+test server::auth::oidc::tests::url_encode_special_chars ... ok
+test server::auth::oidc::tests::generate_state_nonce_unique ... ok
+test server::auth::oidc::tests::validate_id_token_malformed_jwt ... ok
+test server::auth::oidc::tests::validate_id_token_happy_path ... ok
+test server::auth::oidc::tests::validate_id_token_wrong_issuer ... ok
+test server::auth::oidc::tests::validate_id_token_expired ... ok
+test server::auth::oidc::tests::decode_jwt_payload_aud_string_and_array ... ok
+test server::auth::oidc::tests::validate_id_token_wrong_audience ... ok
+test server::auth::oidc::tests::validate_id_token_missing_sub ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored
+```
+
+## 4. Expected Outcome Checklist
+
+- [x] `/api/auth/oidc/start` creates nonce/state, constructs provider auth URL, stores pending state
+  - mock: returns auth_url + login_id + state + mock_user
+  - real: builds {issuer}/authorize?... URL with state + nonce, returns auth_url + login_id
+- [x] `/api/auth/oidc/callback` validates state, exchanges code for tokens, validates issuer/audience/expiry/nonce, creates session
+  - mock: validates state via LoginStore.is_pending(), creates session, completes login
+  - real: validates state, POSTs to {issuer}/api/oauth2/token, decodes JWT, validates iss/aud/exp, extracts sub + preferred_username, creates session
+- [x] `/api/auth/oidc/poll/{login_id}` supports CLI polling (pending/complete/expired/denied)
+  - Pending → returns {"status":"pending"}
+  - Complete → returns {"status":"complete","token":"...","owner":"...","expires_at_unix":...} (one-shot)
+  - Expired → returns {"status":"expired"} after 10 min TTL (one-shot)
+  - Denied → returns {"status":"denied","reason":"..."} (one-shot)
+  - Unknown login_id → 404
+- [x] `/api/auth/oidc/session` returns current session owner
+- [x] `/api/auth/oidc/logout` clears session + cookie
+- [x] Mock OIDC only available when MCM_AUTH_MODE=mock (route dispatch by AuthMode)
+- [x] Real OIDC mode requires all four OIDC env vars (validated at startup by config)
+- [x] Secrets/tokens not logged (SecretString redacted, no eprintln of tokens)
+- [x] cargo test passes (26 auth tests + 9 oidc unit tests)
+- [x] cargo clippy --all-targets --all-features -- -D warnings passes
+
+## 5. Test Scenarios Covered
+
+### NEW tests added in this task:
+| Test | Scenario |
+|------|----------|
+| oidc_start_returns_login_id | start returns login_id + auth_url |
+| oidc_poll_pending_before_callback | poll returns pending before callback |
+| oidc_poll_complete_after_callback | callback → poll returns complete with token/owner |
+| oidc_poll_complete_is_one_shot | second poll returns 404 (consumed) |
+| oidc_poll_unknown_login_id_returns_404 | nonexistent id → 404 |
+| oidc_replayed_state_fails | second callback with same state → 400 |
+| oidc_invalid_state_fails | callback with unknown state → 400 |
+| oidc_logout_clears_session | logout invalidates session, /session returns 401 |
+| oidc_session_returns_owner | /session with valid token returns owner |
+| oidc_login_id_isolation_between_servers | login_id from server1 not found on server2 |
+
+### OIDC unit tests:
+| Test | Scenario |
+|------|----------|
+| validate_id_token_happy_path | valid claims pass |
+| validate_id_token_wrong_issuer | wrong iss → error |
+| validate_id_token_wrong_audience | wrong aud → error |
+| validate_id_token_expired | expired exp → error |
+| validate_id_token_malformed_jwt | not-a-JWT → error |
+| validate_id_token_missing_sub | missing sub → error |
+| decode_jwt_payload_aud_string_and_array | aud as string and array both parse |
+| url_encode_special_chars | percent-encoding works |
+| generate_state_nonce_unique | nonces are unique |
+
+## 6. Files Modified/Created
+
+| File | Action | LOC |
+|------|--------|-----|
+| Cargo.toml | Added base64 = "0.22" | +1 |
+| src/server/auth/login.rs | NEW: LoginStore (CLI polling) | ~210 |
+| src/server/auth/oidc.rs | NEW: Real OIDC handlers + JWT validation | ~410 |
+| src/server/auth/mock.rs | Rewritten: LoginStore, poll, logout | ~180 |
+| src/server/auth.rs | Rewritten: LoginStore, routes(AuthMode), session invalidation | ~250 |
+| src/server/mod.rs | Added config()/auth_mode(), pass auth_mode to routes | +8 |
+| tests/server_auth.rs | Added 10 new test cases | +220 |

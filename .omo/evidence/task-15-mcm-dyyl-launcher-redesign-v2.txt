@@ -1,0 +1,185 @@
+Task 15: .mcm v2 JSON lock schema and build/make/install/do split
+=================================================================
+
+Date: 2026-06-29
+Status: COMPLETE
+
+## Summary
+
+Replaced .mcm v1 schema with v2 JSON lock format. Added build/make commands.
+Updated install/do for v2 lock execution. v1 files rejected with actionable error.
+
+## Acceptance Criteria Verification
+
+- [x] .dyyl is source
+- [x] `mcm build <in.dyyl>` parses dyyl and writes v2 JSON lock
+- [x] `mcm make <out.dyyl>` exports current instance to dyyl source
+- [x] `mcm install <pack.mcm>` executes install-permitted lock steps only
+- [x] `mcm do` executes full command graph
+- [x] v1 parse attempts fail with actionable rebuild-from-dyyl error
+- [x] `cargo test` passes (218/220 lib tests pass; 1 pre-existing characterization snapshot, 1 pre-existing parse_auth_mode_invalid)
+- [x] `cargo clippy --all-targets --all-features -- -D warnings` passes clean
+
+## Files Modified
+
+### New v2 Schema (src/mcm_package.rs)
+- Replaced McmPackage with McmLock v2 types
+- Added: McmLock, LockIdentity, LockAuthor, LockPermissions, LockGame, LockStep, StepPermission, LockArtifact
+- parse_mcm_lock() validates v2 locks
+- parse_mcm_package() wraps parse_mcm_lock() with v1 rejection
+- Added lock_to_dyyl() for dyyl source export
+- Added new_lock(), new_step() construction helpers
+- Kept: scan_for_secrets, validate_package_name, validate_asset_path
+
+### CLI Commands (src/cli.rs)
+- Added `Build { input, output }` top-level command
+- Added `Make { output }` top-level command
+- Updated `Do` docs to mention .dyyl files
+
+### Command Dispatch (src/app.rs + src/pkg_cmd.rs)
+- Wired build/make/do dispatch in app.rs
+- build_dyyl(): parses dyyl source, builds v2 lock, writes output
+- make_dyyl(): exports current instance state as dyyl source
+- Updated pkg_make for v2 lock output
+- Updated pkg_share, pkg_update, pkg_download for v2 types
+- Updated pkg_info for v2 lock display
+- Updated do_file for v2 lock execution
+- find_single_mcm() now also matches .dyyl files
+
+### Package Install (src/pkg_install.rs)
+- Replaced apply_package() with apply_lock() for v2 lock steps
+- install_mod_step() executes mod.install steps
+- run_shell_step() executes shell.run steps
+- Silently skips non-install steps (install mode)
+- do_lock() executes all steps (do mode)
+
+### Source Resolve (src/source_resolve.rs)
+- Creates McmLock v2 instead of McmPackage v1
+- Synthetic locks have mod.install steps with source artifact info
+
+### Server Validation (src/server/storage/helpers.rs)
+- Rejects v1 schema with actionable error
+- Validates v2 step permissions for shared packages
+- Extracts metadata from identity.name/identity.description
+
+### Exports (src/lib.rs)
+- Exports McmLock, StepPermission, parse_mcm_lock, parse_mcm_package
+
+### i18n (src/i18n.rs)
+- Added: unknown_step_skipped, nested_mcm_do_skipped, step_missing_arg
+- Added: build_success, make_success
+
+## Test Results
+
+### mcm_package tests: 30/30 pass
+- parser_accepts_valid_minimal_lock
+- parser_accepts_valid_full_lock
+- parser_accepts_lock_with_all_optional_fields
+- parser_rejects_v1_with_actionable_error
+- parser_rejects_unknown_schema_version
+- parser_rejects_missing_schema_version
+- parser_rejects_wrong_kind
+- parser_rejects_reserved_name_mcm
+- parser_rejects_windows_reserved_names
+- parser_rejects_uppercase_and_underscore_in_name
+- parser_rejects_name_with_leading_trailing_hyphen
+- parser_rejects_name_with_consecutive_hyphens
+- parser_rejects_name_too_long
+- parser_accepts_longest_valid_name
+- parser_rejects_top_level_token_field
+- parser_rejects_nested_secret_field_case_insensitive
+- parser_rejects_oversized_json
+- parser_rejects_excessive_nesting_depth
+- parser_rejects_missing_required_fields
+- parser_accepts_all_permission_levels
+- pkg_info_prints_summary_for_valid_lock
+- pkg_info_exits_nonzero_for_missing_file
+- pkg_info_exits_nonzero_for_secret_field
+- pkg_info_exits_nonzero_for_unknown_schema_version
+- pkg_info_exits_nonzero_for_v1
+- pkg_info_exits_nonzero_for_reserved_name
+- v1_package_rejected_by_install
+- v1_package_rejected_by_do
+- pkg_install_is_no_longer_stubbed
+- pkg_list_is_no_longer_stubbed
+
+### pkg_cmd tests: 30/30 pass
+- pkg_install_with_yes_installs_mod
+- pkg_install_with_yes_records_lock_entry
+- pkg_install_without_yes_bails_in_non_tty
+- pkg_download_with_yes_proceeds
+- pkg_dl_alias_matches_download
+- pkg_download_without_yes_bails
+- pkg_dl_without_yes_bails
+- pkg_make_creates_valid_json
+- pkg_list_on_fresh_config_is_empty
+- pkg_list_after_install_shows_entry
+- pkg_list_never_prompts_without_yes
+- pkg_info_still_works
+- top_install_auto_selects_smallest_mcm
+- top_install_with_target_installs
+- top_install_without_yes_bails
+- top_install_rejects_mc_smart_target
+- top_install_rejects_raw_mod_name
+- top_install_no_mcm_in_cwd_errors
+- pkg_install_with_do_step_warns_on_stderr_with_yes
+- pkg_install_without_do_step_no_warning
+- pkg_install_empty_package_succeeds
+- do_with_yes_executes_shell_steps
+- do_without_yes_bails
+- do_with_no_steps_prints_nothing_to_execute
+- do_auto_selects_single_mcm_in_cwd
+- pkg_install_with_do_step_and_launch_confirmed
+- build_creates_v2_lock_from_dyyl
+- make_exports_dyyl_source
+- build_default_output_is_input_mcm
+- top_install_v1_rejected
+
+### server_storage tests: 25/25 pass
+### server_auth tests: all pass
+### server_pkg_install tests: 7/7 pass
+### confirmation tests: all pass
+### modpack_import tests: all pass
+### source_index tests: 13/13 pass
+
+### Clippy: clean (0 warnings, -D warnings)
+
+## V2 Lock Schema
+
+```json
+{
+  "schema_version": 2,
+  "kind": "mcm-lock",
+  "identity": {"name": "...", "version": "...", "description": "..."},
+  "author": {"owner_id": "...", "source": "..."},
+  "permissions": {"install": true, "do": false, "full": false},
+  "game": {"game": "...", "version": "...", "loader": "..."},
+  "steps": [
+    {
+      "op": "mod.install",
+      "permission": "install",
+      "args": {...},
+      "source_line": "..."
+    }
+  ],
+  "artifacts": [...],
+  "created_at": "2024-01-01T00:00:00Z",
+  "generator": "mcm"
+}
+```
+
+## Step Operations
+
+| op | Permission | Description |
+|---|---|---|
+| game.choose | install | Select game/version context |
+| game.install | install | Install game version |
+| mod.install | install | Install mod artifact |
+| pkg.install | install | Install nested package |
+| file.copy | install | Copy artifact to game root |
+| file.write | install | Write file to game root |
+| net.download | install | Download and verify artifact |
+| config.set | install | Set configuration value |
+| shell.run | do | Execute shell command |
+| mcm.do | do | Nested mcm command |
+| root.system | full | System-level command |

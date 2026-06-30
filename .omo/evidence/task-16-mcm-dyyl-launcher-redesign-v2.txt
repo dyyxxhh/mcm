@@ -1,0 +1,88 @@
+Task 16: Permission model, upload validation, and version-root file/network semantics
+=====================================================================================
+
+## Implementation Summary
+
+### 1. Path Validation (mcm_package.rs)
+- Added `validate_step_dest_path()` - validates version-root relative paths
+- Added `validate_lock_step_paths()` - validates all file/net/cwd paths at parse time
+- Added `validate_lock_install_only()` - rejects non-install steps for server upload
+- Paths reject: empty, null bytes, `..` traversal, absolute paths, backslashes, Windows-reserved components
+- Validation runs automatically in `parse_mcm_lock()` (boundary parser)
+
+### 2. Permission Matrix (mcm_package.rs)
+- `StepPermission` enum: Install, Do, Full
+- `is_install_permitted()` returns true only for Install variant
+- `as_str()` and Display trait for human-readable permission names
+- `validate_lock_install_only()` rejects any step with Do or Full permission
+
+### 3. Server Upload Validation (server/storage/helpers.rs)
+- `validate_payload()` calls `validate_install_only()` on uploaded content
+- Rejects: non-install steps, v1 schema, actions, launch config, local data, secrets
+- Returns 400 Bad Request with clear error message
+
+### 4. `mcm install` Silent Strip (pkg_install.rs)
+- `apply_lock()` silently skips steps where `!step.permission.is_install_permitted()`
+- Only install-permitted steps execute during `mcm install`
+- Do/full steps are silently removed without error
+
+### 5. `mcm do` Full Graph Execution (pkg_install.rs)
+- `do_lock()` executes ALL step types: install, do, and full
+- root.system steps require additional NonBypassable confirmation
+- mcm.do nested steps are skipped (requires dyyl host)
+- Installs steps: game.choose, mod.install, shell.run, file.copy, file.write, net.download, config.set, game.install, pkg.install
+
+### 6. Version-Root Resolution (pkg_install.rs)
+- `VersionContext` struct tracks game.choose scope
+- `game.choose` sets version root: `~/mcm/{game}/{version}`
+- `file.copy`, `file.write`, `net.download`, `shell.run` (cwd) resolve paths relative to version root
+- Default root from active profile's mods_dir parent
+
+### 7. `game.choose` Scoping
+- Each `game.choose` step resets the version context
+- Scope persists until next `game.choose` or script end
+- Version-scoped commands (file.*, net.download, config.set) use the current context's root
+
+## Test Results
+
+### Unit Tests (mcm_package.rs)
+```
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+```
+
+### Lib Tests
+```
+test result: ok. 229 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+```
+
+### Server Storage Tests
+```
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+```
+
+### Pkg Cmd Tests
+```
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+```
+
+### Clippy
+```
+cargo clippy --lib -- -D warnings: clean (no warnings)
+cargo clippy --test mcm_package -- -D warnings: clean (no warnings)
+```
+
+## Files Modified
+- `src/mcm_package.rs` - Path validation, permission helpers, step path validation
+- `src/pkg_install.rs` - VersionContext, step execution, do_lock full graph, file/net/config steps
+- `src/lib.rs` - Exported new public functions
+- `tests/mcm_package.rs` - 20+ new tests for Task 16
+
+## Acceptance Criteria Met
+- [x] Server upload validation accepts install-only shared lock
+- [x] `mcm install` silently removes no-install-permission commands
+- [x] `mcm do` runs full graph
+- [x] `file.*` and network download target paths relative to selected game version root
+- [x] Reject traversal/absolute/backslash paths
+- [x] `mcm.game.choose` only affects current dyyl script
+- [x] `cargo test` passes (all relevant tests)
+- [x] `cargo clippy --all-targets --all-features -- -D warnings` passes

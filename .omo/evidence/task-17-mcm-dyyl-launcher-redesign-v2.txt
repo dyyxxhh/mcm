@@ -1,0 +1,65 @@
+Task 17: Source weighting and provider integration
+Completed: $(date -Iseconds)
+
+## Changes
+
+### config.rs
+- Added `UserConfig` struct with `source_weights: BTreeMap<String, f64>`
+- Added `user: UserConfig` field to `Config`
+
+### provider.rs
+- Added `effective_downloads(source_weight: f64, raw_download_count: Option<u64>) -> f64`
+- Formula: `source_weight * max(raw_download_count, 1)`
+
+### install.rs
+- Modified `select_artifact` to accept `source_weights: &BTreeMap<String, f64>`
+- Modified `build_plan` to accept `source_weights: &BTreeMap<String, f64>`
+- Modified `artifact_is_better` to use `effective_downloads` for comparison
+- Source weights are looked up by provider name; default weight is 1.0
+
+### lifecycle.rs, queries.rs, upgrade.rs
+- Updated callers to pass `config.user.source_weights` to `select_artifact`/`build_plan`
+
+### provider/modrinth.rs, provider/curseforge.rs
+- Updated test calls to pass empty weights map
+
+### cli.rs
+- Added `User { command: UserCommand }` variant to `Command` enum
+- Added `UserCommand::Config { key, value }` variant
+
+### user_cmd.rs (new)
+- Implements `mcm user config <key> <value>` command
+- Accepts `source.weight.<provider>` keys
+- Rejects unknown keys and invalid values
+- Writes to `config.toml` `user` table
+
+### i18n.rs
+- Added 5 new i18n functions for user config messages
+
+### mcm_package.rs
+- Fixed pre-existing clippy warning: `to_string()` in format args
+
+### tests/mcm_package.rs
+- Fixed pre-existing clippy warning: unused import
+
+## Test Results
+
+### cargo test --lib --all-features
+229 passed; 0 failed
+
+New tests:
+- effective_downloads_missing_count_treated_as_one: PASS
+- effective_downloads_zero_count_treated_as_one: PASS
+- effective_downloads_multiplies_weight_by_max_count: PASS
+- source_weight_changes_ordering: PASS
+- ties_are_deterministic_first_candidate_wins: PASS
+- select_artifact_respects_custom_source_candidate: PASS
+- user_config_source_weights_applied_in_build_plan: PASS
+- user_config_sets_source_weight: PASS
+- user_config_rejects_old_naming: PASS
+
+### cargo clippy --all-targets --all-features -- -D warnings
+Finished clean (0 warnings)
+
+### characterization tests
+43 passed, 1 failed (pre-existing warning format mismatch in cloud_info_prints_selected_artifact_and_all_dependency_kinds — artifact selection output is correct: rootmod-file 1.0.0)
