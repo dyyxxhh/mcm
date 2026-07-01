@@ -247,7 +247,7 @@ Your next move: start work with the worker, or request a high-accuracy review fi
   QA scenarios: Happy: `mcm pkg install ./sample.mcm --yes` writes expected files and lock entries; interactive install succeeds after confirmation; version-creating package updates its own version config. Failure: duplicate/unsafe asset path in `.mcm` aborts without partial install; non-interactive install/download without `--yes` exits with confirmation-required message; script package without confirmation refuses; non-version package attempting config changes is rejected. Evidence `.omo/evidence/task-10-mcm-minecraft-manager-expansion.txt`.
   Commit: Y | feat(pkg): install and create mcm packages
 
-- [x] 11. Import/export standard modpack formats
+- [~] 11. Import/export standard modpack formats
   What to do / Must NOT do: Add import/export support for Modrinth `.mrpack` first and CurseForge manifest import/export-compatible output second. Treat resourcepacks/shaderpacks/saves/config/datapacks as opaque assets with safe path checks. Do not parse or rewrite shader GLSL/NBT internals except safe copying/metadata detection.
   Parallelization: Wave 3 | Blocked by: 6, 7 | Blocks: 12, 13, 14
   References: Minecraft format research in draft; existing `zip` dependency `Cargo.toml:18`; `src/lib.rs:635-698`; `src/lib.rs:1872-1930`.
@@ -361,7 +361,7 @@ Your next move: start work with the worker, or request a high-accuracy review fi
 
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
-- [x] F1. Plan compliance audit: read this plan and final diff; verify every Must Have is implemented or explicitly deferred by a user-approved follow-up; verify every Must NOT Have is respected; output `.omo/evidence/f1-plan-compliance-mcm-minecraft-manager-expansion.md`.
+- [~] F1. Plan compliance audit: PARTIAL — re-audit against code found Todo 11 (modpack formats) PARTIAL: Modrinth `.mrpack` import+export implemented (src/modpack_import/export.rs:30-67) but CurseForge export returns not-implemented error (src/pkg_cmd.rs:156-158, i18n.rs:286-289). CurseForge import works. All other 23 todos verified IMPLEMENTED against code. Output `.omo/evidence/f1-plan-compliance-mcm-minecraft-manager-expansion.md`.
 - [x] F2. Code quality review: run `cargo fmt --check`, `cargo clippy --all-targets --all-features -- -D warnings`, pure LOC check on changed Rust files, and review type-boundary/parser/confirmation/download code for unwrap/expect/as/oversized modules; output `.omo/evidence/f2-code-quality-mcm-minecraft-manager-expansion.md`.
 - [x] F3. Real manual QA: run end-to-end CLI and HTTP flows in temp dirs: current MVP smoke, source add/install, OIDC mock login publish/update/delete/download, daily publish/update push limit and max-package limit failures, delete-not-resetting-daily-limit check, `/install`, `/install/pkg/sample`, game install, Java mock install, run dry-run, upgrade/full-upgrade. Include exact commands and outputs in `.omo/evidence/f3-real-qa-mcm-minecraft-manager-expansion.txt`.
 - [x] F4. Scope fidelity/security/license: verify publish has no admin token/Turnstile, server storage default is outside `/x`, fresh install has no custom source, imported sources are trusted with confirmation policy, `curl|bash` verifies artifacts, no HMCL/PCL code/assets copied, no OIDC secrets or provided secret-like values written, AGPL/license docs exist. Output `.omo/evidence/f4-scope-security-license-mcm-minecraft-manager-expansion.md`.

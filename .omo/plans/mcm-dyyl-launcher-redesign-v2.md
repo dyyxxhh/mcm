@@ -261,7 +261,7 @@ Ordering: dyyl must not send a second command requiring the first response until
   QA scenarios: Happy: run server with fake OIDC env values and verify a redacted config diagnostic/log contains issuer/client id presence and `<redacted>` for secret; evidence `.omo/evidence/task-3-mcm-dyyl-launcher-redesign-v2.txt`. Failure: omit `MCM_OIDC_CLIENT_SECRET` in real mode; startup/auth start fails with non-secret error text.
   Commit: Y | chore(server): define secret-safe oidc deployment config
 
-- [x] 4. Real YY-ID/Casdoor OIDC flow
+- [~] 4. Real YY-ID/Casdoor OIDC flow
   What to do / Must NOT do: Implement production OIDC start/callback/session/logout over Casdoor/YY-ID. `/api/auth/oidc/start` must create nonce/state, build provider auth URL under `https://auth.dyyapp.com`, include redirect URI `https://mc.dyyapp.com/api/auth/oidc/callback`, and store pending state. Callback must validate state, exchange code for tokens, validate issuer/audience/expiry/nonce/signature as applicable, derive stable owner from `sub` plus display name from `preferred_username`/`name`/`email`, create session cookie, and redirect or return JSON compatible with CLI/Web. Keep mock OIDC under explicit test/dev mode only. Do not log tokens, codes, state values beyond safe truncated IDs, or secrets.
   Parallelization: Wave 2 | Blocked by: 1,2 | Blocks: 7,8,9
   References: `src/server/auth.rs:217-222` routes currently point to mock handlers; `src/server/auth/mock.rs:63-159` mock start/callback/session; `src/server/config.rs:111-115` reads OIDC env placeholders; completed plan learnings `.omo/notepads/mcm-minecraft-manager-expansion/learnings.md:737-795` describe session store/extractor and real OIDC stub boundary.
@@ -341,7 +341,7 @@ Ordering: dyyl must not send a second command requiring the first response until
   QA scenarios: Happy: set `JAVA` to fake executable that records argv, run `mcm run --dry-run` and `mcm run` in temp instance; evidence `.omo/evidence/task-13-mcm-dyyl-launcher-redesign-v2.txt`. Failure: fake Java exits nonzero and MCM reports exit code/log path.
   Commit: Y | feat(run): execute real minecraft launch commands
 
-- [x] 14. dyyl streaming host protocol design and implementation
+- [ ] 14. dyyl streaming host protocol design and implementation
   What to do / Must NOT do: Extend `/x/dyyl` and MCM integration so dyyl can run with a streaming JSON host protocol. dyyl handles syntax/variables/logic/loops; when it reaches `mcm.*`, it emits a JSON command event and waits for MCM JSON response. Implement enough protocol for build/do/source/install contexts, error sentinels, `mcm.game.choose` session state, and version-root file semantics. Do not batch all commands at the end.
   Parallelization: Wave 5 | Blocked by: 1 | Blocks: 15,16,17
   References: `/x/dyyl/src/main.rs` currently supports `dyyl [--debug] <filename>`; `/x/dyyl/src/runtime/cmd/dispatch.rs` treats `mcm.*` as unknown; `/x/dyyl/dyyl-api-reference.md` lists MCM API but current runtime lacks it; user decided streaming host protocol, dyyl external command, language name `dyyl`.
@@ -383,7 +383,7 @@ Ordering: dyyl must not send a second command requiring the first response until
 
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must return unconditional PASS. The worker reports results; completion does not depend on manual human QA.
-- [x] F1. Plan compliance audit: read this plan and the final diff; verify every Must Have is implemented, every Must NOT Have is respected, no scope creep, every todo has evidence. Output `.omo/evidence/f1-plan-compliance-mcm-dyyl-launcher-redesign-v2.md`.
+- [~] F1. Plan compliance audit: PARTIAL — re-audit against code found Todo 14 (dyyl streaming host protocol) NOT IMPLEMENTED (build_dyyl still hand-parses via parse_dyyl_to_lock at src/pkg_cmd.rs:103-123; source_line always None at mcm_package.rs:453; mcm do file.dyyl bails at pkg_cmd.rs:91-95) and Todo 4 (OIDC) PARTIAL (nonce skipped at oidc.rs:154-158, JWT signature skipped at oidc.rs:23-25,348-351). Todo 12 Microsoft auth endpoints, launch native extraction, and verify_game_files preflight verified FIXED in recent code changes.
 - [x] F2. Code quality review: run fmt/clippy/tests, inspect module sizes and error handling, verify no `unwrap`/panic in production paths unless justified, verify secret redaction, verify no mock-only production path. Output `.omo/evidence/f2-code-quality-mcm-dyyl-launcher-redesign-v2.md`.
 - [x] F3. Real manual QA: with local server/PM2 and fake OIDC plus deploy env shape, run curl checks for `/`, static assets, `/health`, auth, share APIs, install routes; run CLI pkg flows; run browser Web flows with screenshots; run launcher dry-run/fake Java execution; run dyyl build/install/do. Output `.omo/evidence/f3-real-qa-mcm-dyyl-launcher-redesign-v2/`.
 - [x] F4. Security/scope/license audit: prove no OIDC secret leak, no committed real credentials, upload validation rejects do-capable shared locks, curl-bash verifies artifacts, path traversal rejected, any HMCL-derived code has GPLv3 provenance/attribution and AGPL compatibility notes, no PCL code/assets/text copied without explicit approval, AGPL/source docs still present. Output `.omo/evidence/f4-security-scope-mcm-dyyl-launcher-redesign-v2.md`.

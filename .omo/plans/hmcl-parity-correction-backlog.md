@@ -149,7 +149,7 @@ Your next move: run `$start-work .omo/plans/hmcl-parity-correction-backlog.md` t
   QA scenarios: Happy: local fake OIDC/share server + CLI flow + browser flow complete. Failure: unauthenticated publish/update/delete, other-user update/delete, daily limit, invalid package, and 403 display clear errors. Evidence `.omo/evidence/task-8-hmcl-parity-correction-backlog/`.
   Commit: Y | fix(pkg): complete cli and web share parity
 
-- [x] 9. Minecraft launch auth modes and config mutation
+- [~] 9. Minecraft launch auth modes and config mutation
   What to do / Must NOT do: Ensure Minecraft launch auth is independent of YY-ID, offline mode is default, online Microsoft/Mojang mode is selectable and mock-tested, tokens are redacted, expired/invalid sessions fail/refresh per design, and `game config` can set version-scoped fields promised by prior plans instead of being read-only. Do not require a paid account for QA.
   Parallelization: Wave 2 | Blocked by: 2,7,8 | Blocks: 12
   References: `src/auth.rs`, `src/config.rs`, `src/game_cmd.rs:125-128` says config set not defined/read-only, `.omo/plans/minecraft-manager-expansion.md:202-208`, `.omo/plans/mcm-dyyl-launcher-redesign-v2.md:328-334`.
@@ -157,7 +157,7 @@ Your next move: run `$start-work .omo/plans/hmcl-parity-correction-backlog.md` t
   QA scenarios: Happy: configure offline and fake online auth modes, run dry-run for each, set JVM/game args and verify output. Failure: expired token fails without leaking token; invalid config key errors without mutating config. Evidence `.omo/evidence/task-9-hmcl-parity-correction-backlog.txt`.
   Commit: Y | fix(auth): complete launch auth and game config
 
-- [x] 10. Dyyl host protocol, `.mcm` v2 lock, permission, and source-weighting correction
+- [ ] 10. Dyyl host protocol, `.mcm` v2 lock, permission, and source-weighting correction
   What to do / Must NOT do: Revalidate/fix plan-2 Dyyl and `.mcm` claims as a first-class integration, not a package afterthought. Implement the boundary exactly: `.dyyl` is source; MCM invokes the external Dyyl interpreter/compiler in build/do host mode; Dyyl emits NDJSON `mcm_command` events over stdout and waits for `mcm_response`; MCM converts allowed events into deterministic `.mcm v2` lock steps for `mcm build`; `mcm make` exports current instance state as Dyyl source; `mcm install <pack.mcm>` executes install-permitted lock steps only and never runs Dyyl; `mcm do <file.dyyl|pack.mcm>` executes full/do-capable graphs with confirmation policy. Replace the current direct Dyyl-source parsing shortcut in `build_dyyl`/`parse_dyyl_to_lock` with the host protocol, or leave an explicit failing compliance row until fixed. Revalidate v2 parse/validate, v1 rejection, upload rejection for non-install locks, version-root path semantics, `mcm.game.choose`, source weighting `source_weight * max(raw_download_count, 1)`, and `mcm.user.config` naming.
   Parallelization: Wave 3 | Blocked by: 2 | Blocks: 11,12
   References: `.omo/plans/mcm-dyyl-launcher-redesign-v2.md:40-42`, `.omo/plans/mcm-dyyl-launcher-redesign-v2.md:199-204`, `.omo/plans/mcm-dyyl-launcher-redesign-v2.md:344-374`, `src/pkg_cmd.rs:81-126` currently rejects `mcm do file.dyyl` and hand-parses `mcm build`, `src/pkg_cmd.rs:128-140` exports Dyyl text, `src/mcm_package.rs:59-65`, `src/mcm_package.rs:279-328`, `src/pkg_install.rs:340-392`, `src/provider/composite.rs`, `src/user_cmd.rs`, `/x/dyyl` references if available to worker.
@@ -183,10 +183,19 @@ Your next move: run `$start-work .omo/plans/hmcl-parity-correction-backlog.md` t
 
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
-- [x] F1. Plan compliance audit: APPROVE — matrix statuses and README current-status were reconciled; CurseForge export, Web UI file-only evidence, Dyyl NDJSON, artifact download, and native extraction gaps are documented without overclaiming.
+- [~] F1. Plan compliance audit: PARTIAL — re-audit against code (not prior evidence) found Todo 10 (Dyyl NDJSON) and Todo 9 (game config `env` key) overclaimed; F1-F4 below were re-validated by reading src/, not .omo/evidence. Microsoft online auth endpoints, native extraction at launch, and verify_game_files preflight were verified FIXED after recent code changes (auth_microsoft.rs:353,399,428; launch.rs:222,521).
 - [x] F2. Code quality review: APPROVE — production mock artifact writes are gated to fixture provider or fail clearly, online auth no longer silently succeeds through mock provider, OIDC handler unwraps were replaced with errors, stale stub comments were removed, and fmt/clippy pass.
-- [x] F3. Real manual QA: APPROVE — debug binary rebuilt with `/home/usr/.cargo/bin/cargo`; launcher, game config, run, server/share/Web, and Dyyl smoke paths were exercised with exact command evidence; remaining characterization failure is documented as pre-existing.
+- [x] F3. Real manual QA: APPROVE — debug binary rebuilt; launcher, game config, run, server/share/Web, and Dyyl smoke paths were exercised with exact command evidence; remaining characterization failure is documented as pre-existing.
 - [x] F4. Scope/security/license audit: APPROVE — no scope creep, no secret leakage, no PCL/HMCL copying, license policy reviewed, and package/script safety controls verified with available tools.
+
+## Remaining HMCL parity gaps (not covered by original todos; tracked here for honesty)
+> These are desktop-launcher breadth features HMCL/PCL provide that mcm CLI scope did not originally enumerate. Not regressions; documented for user acceptance.
+- [ ] 13. Multi-account support: config holds single `Option<OnlineAccount>` (`src/config.rs:64`); no `auth list`/`auth switch` CLI. HMCL/PCL support multiple accounts with switching.
+- [ ] 14. Download mirror source (BMCLAPI etc.): all URLs hardcoded to direct Mojang (`launchermeta.mojang.com`, `libraries.minecraft.net`, `resources.download.minecraft.net`); no configurable mirror layer. Hurts China-region users.
+- [ ] 15. Memory auto-allocation: JVM heap must be set manually via `game config set jvm_args`; no system-RAM-based `-Xmx` auto-suggestion. HMCL/PCL auto-suggest.
+- [ ] 16. Crash log analyzer: no `mcm crash` command, no `hs_err_pid*` parsing, no analysis feature. Only a code comment at `src/launch.rs:263`.
+- [ ] 17. World/screenshot/skin management: `OperationKind::WorldOverwrite`/`WorldDelete` exist in `src/confirmation.rs:57-58` as reserved enum variants but are never emitted by any code path; no CLI commands for world backup/export, screenshots, or skins.
+- [ ] 18. Server pack export: no `mcm export server` command or dedicated-server bundle feature. Only an unrelated comment at `src/server/config.rs:160`.
 
 ## Commit strategy
 - Use one commit per todo where possible. Keep behavior change and direct tests together. Do not commit `.omo/evidence` unless explicitly requested after scrubbing.
