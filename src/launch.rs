@@ -18,7 +18,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::auth::AuthSession;
 use crate::config::LaunchAuthConfig;
@@ -223,12 +223,12 @@ fn verify_game_files(game: &GameRecord, mc_version: &str) -> Result<()> {
     let vid = game.resolved_version_id.as_deref().unwrap_or(mc_version);
     let version_dir = game.root_dir.join("versions").join(vid);
 
-    let version_json = version_dir.join(format!("{vid}.json"));
-    if !version_json.exists() {
+    let version_json_path = version_dir.join(format!("{vid}.json"));
+    if !version_json_path.exists() {
         bail!(
             "version metadata not found at {}; \
              run `mcm game install {} mc{}` to reinstall",
-            version_json.display(),
+            version_json_path.display(),
             game.name,
             mc_version,
         );
@@ -257,6 +257,81 @@ fn verify_game_files(game: &GameRecord, mc_version: &str) -> Result<()> {
                 );
             }
         }
+    }
+
+    // Validate libraries, natives, and asset index so launch fails with a
+    // clear reinstall hint BEFORE spawning Java (instead of crashing inside
+    // the JVM with a ClassNotFoundException / UnsatisfiedLinkError). The
+    // version JSON is parsed here in addition to Stage 5; the cost is
+    // negligible and keeps this preflight check self-contained.
+    let vj = parse_version_json(&version_json_path).with_context(|| {
+        format!("parse version JSON: {}", version_json_path.display())
+    })?;
+    let platform = current_platform().with_context(|| {
+        "unsupported platform; MCM currently supports Linux, macOS, and Windows"
+    })?;
+    let libraries_root = game.root_dir.join("libraries");
+
+    // Library artifacts (filtered for the current platform).
+    let lib_paths = version_json::filter_library_artifacts(
+        &vj.libraries,
+        platform,
+        &libraries_root,
+    );
+    for lib_path in &lib_paths {
+        if !lib_path.exists() {
+            bail!(
+                "library not found at {}; \
+                 run `mcm game install {} mc{}` to reinstall",
+                lib_path.display(),
+                game.name,
+                mc_version,
+            );
+        }
+    }
+
+    // Native classifier JARs (we only require the classifier jar to exist;
+    // the actual `.so`/`.dylib`/`.dll` extraction happens in Stage 7).
+    let native_jar_paths =
+        version_json::native_jar_paths(&vj.libraries, &libraries_root, platform);
+    for native_jar in &native_jar_paths {
+        if !native_jar.exists() {
+            bail!(
+                "native classifier jar not found at {}; \
+                 run `mcm game install {} mc{}` to reinstall",
+                native_jar.display(),
+                game.name,
+                mc_version,
+            );
+        }
+    }
+
+    // Asset index file. The asset objects themselves are downloaded lazily
+    // by the game on first run from the index, so we only preflight the
+    // index here (matching what `mcm run --dry-run` needs to render args).
+    if vj.asset_index.is_some() {
+        let assets_id = vj.assets.as_deref().unwrap_or("pre-1.6");
+        let index_path = game
+            .root_dir
+            .join("assets")
+            .join("indexes")
+            .join(format!("{assets_id}.json"));
+        if !index_path.exists() {
+            bail!(
+                "asset index not found at {}; \
+                 run `mcm game install {} mc{}` to reinstall",
+                index_path.display(),
+                game.name,
+                mc_version,
+            );
+        }
+    } else if vj.assets.is_none() {
+        bail!(
+            "version JSON has no assetIndex; cannot launch; \
+             run `mcm game install {} mc{}` to reinstall",
+            game.name,
+            mc_version,
+        );
     }
 
     Ok(())
@@ -431,8 +506,18 @@ fn build_args_from_version_json(
 
 /// Extract native library JARs to the natives directory.
 ///
-/// Creates the natives directory and copies native classifier JARs from
-/// the libraries directory. Validates paths to prevent traversal.
+/// Walks each native classifier JAR's contents and extracts the
+/// platform-native shared libraries (`.so` / `.dylib` / `.dll`) into
+/// `natives/`, matching the Minecraft launcher convention for
+/// `-Djava.library.path=<natives_dir>`. Non-library entries (metadata,
+/// licenses) are skipped. Directories and metadata are not preserved.
+///
+/// Idempotent / install-aware: `mcm game install` already extracts natives
+/// at install time (real provider) or writes a `mock-native.txt` marker
+/// (mock provider). This launch-time step is a repair path: if `natives/`
+/// already contains files, the install-time result is trusted and we return
+/// early. Otherwise we attempt extraction from the classifier JARs,
+/// skipping any that are not valid ZIP archives (mock artifacts).
 fn extract_natives(
     vj: &VersionJson,
     version_dir: &Path,
@@ -440,6 +525,19 @@ fn extract_natives(
     platform: version_json::Platform,
 ) -> Result<()> {
     let natives_dir = version_json::natives_directory(version_dir);
+
+    // Install-time extraction already populated natives/ for both real
+    // (real .so/.dylib/.dll) and mock (mock-native.txt marker) providers.
+    // Trust it and avoid clobbering; this also keeps mock-mode tests working
+    // since the mock classifier JAR is a text file, not a real ZIP.
+    if natives_dir.exists()
+        && std::fs::read_dir(&natives_dir)
+            .with_context(|| format!("read natives dir: {}", natives_dir.display()))?
+            .next()
+            .is_some()
+    {
+        return Ok(());
+    }
 
     let native_paths = version_json::native_jar_paths(&vj.libraries, libraries_root, platform);
 
@@ -450,14 +548,25 @@ fn extract_natives(
     std::fs::create_dir_all(&natives_dir)
         .with_context(|| format!("create natives dir: {}", natives_dir.display()))?;
 
+    // `platform.name` is `&'static str` ("linux" / "osx" / "windows"); note
+    // macOS uses "osx", not "macos".
+    let native_exts: &[&str] = match platform.name {
+        "linux" => &[".so"],
+        "osx" => &[".dylib"],
+        "windows" => &[".dll"],
+        _ => &[".so", ".dylib", ".dll"],
+    };
+    let natives_canonical = natives_dir
+        .canonicalize()
+        .unwrap_or_else(|_| natives_dir.clone());
+
     for jar_path in &native_paths {
-        // Validate: no path traversal
+        // Validate: no path traversal (a malicious classifier path that
+        // resolves inside natives_dir would let the zip writer clobber an
+        // extracted native).
         let canonical = jar_path
             .canonicalize()
             .with_context(|| format!("resolve native jar: {}", jar_path.display()))?;
-        let natives_canonical = natives_dir
-            .canonicalize()
-            .unwrap_or_else(|_| natives_dir.clone());
         if canonical.starts_with(&natives_canonical) {
             bail!(
                 "path traversal rejected: native jar {} resolves inside natives dir",
@@ -465,12 +574,62 @@ fn extract_natives(
             );
         }
 
-        if jar_path.exists() {
-            let dest_name = jar_path.file_name().context("native jar has no filename")?;
-            let dest = natives_dir.join(dest_name);
-            std::fs::copy(jar_path, &dest).with_context(|| {
-                format!("copy native {} to {}", jar_path.display(), dest.display())
-            })?;
+        if !jar_path.exists() {
+            bail!(
+                "native classifier jar not found at {}; \
+                 run `mcm game install ... <target>` to reinstall",
+                jar_path.display()
+            );
+        }
+
+        let file = std::fs::File::open(jar_path)
+            .with_context(|| format!("open native jar: {}", jar_path.display()))?;
+        // Mock artifacts are text files, not real ZIPs; skip them gracefully
+        // rather than failing the launch. Real classifier JARs are always
+        // valid ZIPs. If a real classifier is corrupted, the next
+        // `mcm game install` will re-download it with hash verification.
+        let mut archive = match zip::ZipArchive::new(file) {
+            Ok(a) => a,
+            Err(_) => continue,
+        };
+
+        for i in 0..archive.len() {
+            let mut entry = archive
+                .by_index(i)
+                .with_context(|| format!("read zip entry {i} from {}", jar_path.display()))?;
+            let entry_name = entry.name().to_owned();
+            // Skip directories and JAR metadata.
+            if entry.is_dir() || entry_name.starts_with("META-INF/") {
+                continue;
+            }
+            // Only extract shared libraries; ignore license/readme files.
+            let is_native = native_exts
+                .iter()
+                .any(|ext| entry_name.ends_with(*ext));
+            if !is_native {
+                continue;
+            }
+            // Flatten: take only the basename so the JVM can find them via
+            // `-Djava.library.path=<natives_dir>`.
+            let basename = std::path::Path::new(&entry_name)
+                .file_name()
+                .ok_or_else(|| anyhow!("zip entry has no file name: {entry_name}"))?;
+            let out_path = natives_dir.join(basename);
+            // Guard against zip-slip: basename must not escape natives_dir.
+            let out_canonical = out_path
+                .parent()
+                .and_then(|p| p.canonicalize().ok())
+                .unwrap_or_else(|| natives_dir.clone());
+            if !out_canonical.starts_with(&natives_canonical) {
+                bail!(
+                    "path traversal rejected: zip entry {} escapes natives dir",
+                    entry_name
+                );
+            }
+            let mut out = std::fs::File::create(&out_path)
+                .with_context(|| format!("create native file: {}", out_path.display()))?;
+            std::io::copy(&mut entry, &mut out)
+                .with_context(|| format!("extract native file: {}", out_path.display()))?;
         }
     }
 
@@ -500,6 +659,7 @@ mod tests {
     use super::*;
     use crate::auth::LaunchAuthMode;
     use crate::game_model::GameConfig;
+    use std::io::Write;
 
     fn make_game(mc_version: &str, loader: Option<&str>, lv: Option<&str>) -> GameRecord {
         let resolved_version_id = match (loader, lv) {
@@ -711,14 +871,45 @@ mod tests {
             std::fs::write(&loader_jar, b"mock loader jar").expect("write loader jar");
         }
 
-        // Write mock native jar in the libraries path
-        let native_jar_dir = root.join("libraries/org/lwjgl/lwjgl/3.3.3");
-        std::fs::create_dir_all(&native_jar_dir).expect("create native dir");
-        std::fs::write(
-            native_jar_dir.join("lwjgl-3.3.3-natives-linux.jar"),
-            b"mock native jar",
-        )
-        .expect("write native jar");
+        // Write library artifacts so verify_game_files' preflight passes.
+        let libraries_root = root.join("libraries");
+        let lib_paths = [
+            format!("net/minecraft/client/{mc_version}/client-{mc_version}.jar"),
+            "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar".to_owned(),
+        ];
+        for p in &lib_paths {
+            let dest = libraries_root.join(p);
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent).expect("create lib dir");
+            }
+            std::fs::write(&dest, b"mock library jar").expect("write library jar");
+        }
+
+        // Write asset index file so verify_game_files' preflight passes.
+        let asset_index_dir = root.join("assets").join("indexes");
+        std::fs::create_dir_all(&asset_index_dir).expect("create asset index dir");
+        std::fs::write(asset_index_dir.join("12.json"), b"{\"objects\":{}}")
+            .expect("write asset index");
+
+        // Write a REAL native classifier zip containing a `.so` so the
+        // launch-time extract_natives step has something valid to extract.
+        // (The old fixture wrote a text file, which only worked because the
+        // old extract_natives just copied the jar verbatim.)
+        let native_jar_dir = libraries_root.join("org/lwjgl/lwjgl/3.3.3");
+        std::fs::create_dir_all(&native_jar_dir).expect("create native jar dir");
+        let native_jar_path = native_jar_dir.join("lwjgl-3.3.3-natives-linux.jar");
+        {
+            let file = std::fs::File::create(&native_jar_path).expect("create native jar file");
+            let mut writer = zip::ZipWriter::new(file);
+            let options =
+                zip::write::FileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored);
+            writer
+                .start_file("liblwjgl.so", options)
+                .expect("start zip entry");
+            writer.write_all(b"mock native shared lib").expect("write .so bytes");
+            writer.finish().expect("finalize native jar zip");
+        }
 
         GameRecord {
             name: name.to_owned(),
@@ -809,7 +1000,7 @@ mod tests {
         let cmd =
             build_launch_command("dev", &game, tmp.path(), &mut auth).expect("build should succeed");
 
-        // Natives directory should exist and contain the native jar
+        // Natives directory should exist and contain the extracted `.so`.
         assert!(cmd.natives_dir.exists(), "natives dir should be created");
         let native_entries: Vec<_> = std::fs::read_dir(&cmd.natives_dir)
             .expect("read natives dir")
@@ -818,8 +1009,8 @@ mod tests {
         assert!(
             native_entries
                 .iter()
-                .any(|e| e.file_name().to_string_lossy().contains("natives-linux")),
-            "natives dir should contain native jar"
+                .any(|e| e.file_name().to_string_lossy().ends_with(".so")),
+            "natives dir should contain an extracted .so, got: {native_entries:?}"
         );
     }
 

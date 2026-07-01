@@ -254,6 +254,29 @@ mod tests {
             std::fs::write(&loader_jar, b"mock loader jar").expect("write loader jar");
         }
 
+        // Write library artifacts so verify_game_files' preflight passes.
+        let libraries_root = root.join("libraries");
+        let lib_paths = [
+            format!("net/minecraft/client/{mc_version}/client-{mc_version}.jar"),
+            "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar".to_owned(),
+        ];
+        for p in &lib_paths {
+            let dest = libraries_root.join(p);
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent).expect("create lib dir");
+            }
+            std::fs::write(&dest, b"mock library jar").expect("write library jar");
+        }
+
+        // Write asset index file so verify_game_files' preflight passes.
+        let asset_index_dir = root.join("assets").join("indexes");
+        std::fs::create_dir_all(&asset_index_dir).expect("create asset index dir");
+        std::fs::write(
+            asset_index_dir.join("12.json"),
+            b"{\"objects\":{}}",
+        )
+        .expect("write asset index");
+
         let game = crate::game_model::GameRecord {
             name: name.to_owned(),
             root_dir: root,

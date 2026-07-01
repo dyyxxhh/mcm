@@ -303,7 +303,7 @@ pub(crate) fn exchange_for_xsts(xbl_token: &str) -> Result<String> {
             "SandboxId": "RETAIL",
             "UserTokens": [xbl_token]
         },
-        "RelyingParty": "rp://api.minecraft.com",
+        "RelyingParty": "rp://api.minecraftservices.com/",
         "TokenType": "JWT"
     });
     let resp = client
@@ -346,26 +346,30 @@ struct McTokenResponse {
 }
 
 /// Exchange XSTS + uhs for a Minecraft access token.
+///
+/// Uses the modern `api.minecraftservices.com/authentication/login_with_xbox`
+/// endpoint (the legacy `api.minecraft.com/authenticate/xbox` endpoint is
+/// deprecated and returns 404 on current Mojang services).
 pub(crate) fn exchange_for_mc_token(xsts_token: &str, uhs: &str) -> Result<String> {
     let client = http_client()?;
     let body = serde_json::json!({
         "identityToken": format!("XBL3.0 x={uhs};{xsts_token}")
     });
     let resp = client
-        .post("https://api.minecraft.com/authenticate/xbox")
+        .post("https://api.minecraftservices.com/authentication/login_with_xbox")
         .header("Content-Type", "application/json")
         .header("Accept", "application/json")
         .json(&body)
         .send()
-        .context("send minecraft authenticate request")?;
+        .context("send minecraft login_with_xbox request")?;
     let status = resp.status();
     let parsed: McTokenResponse = resp.json().context("parse minecraft token response")?;
     if !status.is_success() || parsed.access_token.is_empty() {
         let err = parsed
             .error
-            .or_else(|| parsed.error_message)
-            .unwrap_or_else(|| format!("minecraft authenticate failed ({status})"));
-        bail!("minecraft authenticate failed: {err}");
+            .or(parsed.error_message)
+            .unwrap_or_else(|| format!("minecraft login_with_xbox failed ({status})"));
+        bail!("minecraft login_with_xbox failed: {err}");
     }
     Ok(parsed.access_token)
 }
@@ -380,11 +384,51 @@ pub(crate) struct McProfile {
     pub(crate) name: String,
 }
 
+/// Entitlements response from `api.minecraftservices.com/entitlements/mcstore`.
+/// An empty `items` array means the account does not own Minecraft.
+#[derive(Debug, Deserialize)]
+struct EntitlementsResponse {
+    #[serde(default)]
+    items: Vec<serde_json::Value>,
+}
+
+/// Verify the account owns Minecraft by querying the entitlements endpoint.
+///
+/// Returns `Ok(())` if ownership is confirmed, or an error explaining the
+/// problem if the account does not own the game or the request failed.
+pub(crate) fn verify_entitlements(mc_access_token: &str) -> Result<()> {
+    let client = http_client()?;
+    let resp = client
+        .get("https://api.minecraftservices.com/entitlements/mcstore")
+        .header("Authorization", format!("Bearer {mc_access_token}"))
+        .send()
+        .context("send minecraft entitlements request")?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().unwrap_or_default();
+        bail!("minecraft entitlements check failed ({status}): {text}");
+    }
+    let parsed: EntitlementsResponse = resp
+        .json()
+        .context("parse minecraft entitlements response")?;
+    if parsed.items.is_empty() {
+        bail!(
+            "this Microsoft account does not own Minecraft; \
+             purchase the game at https://www.minecraft.net before logging in"
+        );
+    }
+    Ok(())
+}
+
 /// Fetch the Minecraft profile (username + UUID) using a MC access token.
+///
+/// Uses the modern `api.minecraftservices.com/minecraft/profile` endpoint
+/// (the legacy `api.minecraft.com/profile` endpoint is deprecated and returns
+/// 404 on current Mojang services).
 pub(crate) fn fetch_profile(mc_access_token: &str) -> Result<McProfile> {
     let client = http_client()?;
     let resp = client
-        .get("https://api.minecraft.com/profile")
+        .get("https://api.minecraftservices.com/minecraft/profile")
         .header("Authorization", format!("Bearer {mc_access_token}"))
         .send()
         .context("send minecraft profile request")?;
@@ -430,6 +474,8 @@ pub(crate) fn full_device_code_login() -> Result<FullLogin> {
     let (xbl_token, uhs) = exchange_for_xbl(&ms_tokens.access_token)?;
     let xsts_token = exchange_for_xsts(&xbl_token)?;
     let mc_access_token = exchange_for_mc_token(&xsts_token, &uhs)?;
+    verify_entitlements(&mc_access_token)
+        .context("verify minecraft ownership")?;
     let profile = fetch_profile(&mc_access_token)?;
 
     Ok(FullLogin {
