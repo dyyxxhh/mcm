@@ -179,8 +179,31 @@ impl App {
             "extra_args" => {
                 game.version_config.extra_args = Some(value.to_owned());
             }
+            "auto_memory" => {
+                game.version_config.auto_memory = match value.to_lowercase().as_str() {
+                    "on" | "true" | "1" | "yes" | "y" => true,
+                    "off" | "false" | "0" | "no" | "n" => false,
+                    _ => bail!(
+                        "invalid auto_memory value '{value}'; use on/off, true/false, or 1/0"
+                    ),
+                };
+            }
+            "env" => {
+                // `env KEY=VALUE` — add or replace a single env entry.
+                if let Some((k, v)) = value.split_once('=') {
+                    game.version_config.env.insert(k.to_owned(), v.to_owned());
+                } else {
+                    bail!(
+                        "env value must be KEY=VALUE (got '{value}'); \
+                         e.g. `mcm game config <name> set env MCM_DEBUG=1`"
+                    );
+                }
+            }
             _ => {
-                bail!("unknown config key '{key}'; valid keys: java_path, jvm_args, extra_args");
+                bail!(
+                    "unknown config key '{key}'; valid keys: java_path, jvm_args, \
+                     extra_args, env, auto_memory"
+                );
             }
         }
         self.save_config(&config)?;

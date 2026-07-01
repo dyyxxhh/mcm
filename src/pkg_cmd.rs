@@ -7,6 +7,7 @@ use anyhow::{bail, Context, Result};
 use crate::app::App;
 use crate::cli::{MakeFormat, PkgCommand};
 use crate::confirmation::{require_confirmation, OperationKind};
+use crate::dyyl_host;
 use crate::i18n;
 use crate::mcm_package::{
     lock_to_dyyl, new_lock, new_step, parse_mcm_lock, LockStep, McmLock, StepPermission,
@@ -82,37 +83,50 @@ impl App {
             Some(p) => p,
             None => find_single_mcm(Path::new("."), self.lang)?,
         };
-        let text = fs::read_to_string(&path)
-            .with_context(|| i18n::read_file_error(self.lang, &path.display().to_string()))?;
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
         if ext == "dyyl" {
-            // dyyl source files: parse as v2 lock (build first, then execute).
-            // For now, dyyl files need to be built first with `mcm build`.
-            bail!(
-                "dyyl source files must be built first; \
-                 run `mcm build {} -o output.mcm` then `mcm do output.mcm --yes`",
-                path.display()
-            );
+            // dyyl source: build to a temp .mcm, then execute.
+            // When dyyl is on PATH this runs the real NDJSON host protocol;
+            // otherwise the built-in text parser is used.
+            let tmp = tempfile::tempdir().context("create temp dir for build")?;
+            let out = tmp.path().join("build.mcm");
+            self.build_dyyl(&path, Some(&out))?;
+            let text = fs::read_to_string(&out)
+                .with_context(|| format!("read built lock: {}", out.display()))?;
+            let lock = parse_mcm_lock(&text)?;
+            return self.do_lock(&lock, yes);
         }
+        let text = fs::read_to_string(&path)
+            .with_context(|| i18n::read_file_error(self.lang, &path.display().to_string()))?;
         let lock = parse_mcm_lock(&text)?;
         self.do_lock(&lock, yes)
     }
 
     /// `mcm build <in.dyyl> [-o <out.mcm>]`: run dyyl with host protocol
     /// and write v2 JSON lock.
+    ///
+    /// When the `dyyl` interpreter is on PATH, mcm spawns it with
+    /// `--host-json` and collects the full NDJSON command stream — the
+    /// real host protocol. When dyyl is absent, mcm falls back to the
+    /// built-in text parser so builds keep working in minimal envs.
     pub(crate) fn build_dyyl(&self, input: &Path, output: Option<&Path>) -> Result<()> {
-        let text = fs::read_to_string(input)
-            .with_context(|| i18n::read_file_error(self.lang, &input.display().to_string()))?;
         let out_path = output.map(PathBuf::from).unwrap_or_else(|| {
             let mut p = input.to_path_buf();
             p.set_extension("mcm");
             p
         });
-        // Parse dyyl source to extract mcm commands.
-        // In a full implementation, this spawns dyyl with --host-json and
-        // collects the streaming protocol. For now, we parse the dyyl source
-        // directly and build the lock from the declared commands.
-        let lock = parse_dyyl_to_lock(&text)?;
+
+        let lock = if dyyl_host::dyyl_available() {
+            // Real host protocol: spawn dyyl --host-json, collect commands.
+            let commands = dyyl_host::run_dyyl_host(input)?;
+            dyyl_host::commands_to_lock(&commands)?
+        } else {
+            // Fallback: built-in text parser (no dyyl binary).
+            let text = fs::read_to_string(input)
+                .with_context(|| i18n::read_file_error(self.lang, &input.display().to_string()))?;
+            parse_dyyl_to_lock(&text)?
+        };
+
         let json = serde_json::to_string_pretty(&lock)?;
         crate::util::atomic_write(&out_path, json.as_bytes())?;
         println!(

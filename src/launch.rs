@@ -23,6 +23,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use crate::auth::AuthSession;
 use crate::config::LaunchAuthConfig;
 use crate::game_model::GameRecord;
+use crate::memory;
 use crate::runtime::{discover_java, DiscoveryResult, JavaRuntime};
 use crate::version_json::{
     self, current_platform, interpolate_args, parse_version_json, VarMap, VersionJson,
@@ -344,7 +345,7 @@ type BuildResult = (Vec<String>, Vec<PathBuf>, String, Vec<String>, String);
 fn build_args_from_version_json(
     game: &GameRecord,
     mc_version: &str,
-    _java_runtime: &JavaRuntime,
+    java_runtime: &JavaRuntime,
     auth_session: &AuthSession,
     vj: &VersionJson,
     platform: version_json::Platform,
@@ -434,6 +435,33 @@ fn build_args_from_version_json(
         for arg in extra.split_whitespace() {
             if !arg.is_empty() {
                 all_jvm_args.push(arg.to_owned());
+            }
+        }
+    }
+
+    // Auto-allocate -Xmx from system RAM (HMCL/PCL parity).
+    //
+    // When auto_memory is on (default), mcm computes -Xmx using HMCL's
+    // exact algorithm (80%/20% bands, 8 GB threshold, 16 GB cap) plus a
+    // 32-bit JVM ceiling. The auto value overrides any -Xmx baked into
+    // the version JSON template, but yields to an explicit -Xmx in the
+    // user's `jvm_args` (so power users can still pin the heap).
+    if game.version_config.auto_memory {
+        let user_has_xmx = game
+            .version_config
+            .jvm_args
+            .as_deref()
+            .map(|s| s.split_whitespace().any(|a| a.starts_with("-Xmx")))
+            .unwrap_or(false);
+        if !user_has_xmx {
+            if let Some(physical) = memory::total_physical_memory() {
+                let is_64bit = memory::is_jvm_64bit(&java_runtime.path);
+                let xmx_bytes = memory::auto_allocate_max_heap(physical, is_64bit);
+                let xmx_arg = memory::format_xmx(xmx_bytes);
+                // Strip any -Xmx inherited from the version JSON template
+                // so the auto value is authoritative (matches HMCL auto).
+                all_jvm_args.retain(|a| !a.starts_with("-Xmx"));
+                all_jvm_args.push(xmx_arg);
             }
         }
     }

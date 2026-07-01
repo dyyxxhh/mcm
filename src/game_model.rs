@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::Config;
 
 /// Version-scoped configuration for a single game (java path, jvm args, env).
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct GameConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) java_path: Option<PathBuf>,
@@ -22,6 +22,31 @@ pub(crate) struct GameConfig {
     pub(crate) extra_args: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) env: BTreeMap<String, String>,
+    /// Whether mcm should auto-compute `-Xmx` from system RAM at launch.
+    ///
+    /// Defaults to `true` (matches HMCL/PCL GUI auto-allocation). When
+    /// `false`, the JVM heap must be set via `jvm_args` or the version
+    /// JSON template. When `true`, the auto-computed `-Xmx` overrides
+    /// any `-Xmx` present in the version JSON template, but is itself
+    /// overridden by an explicit `-Xmx` in `jvm_args`.
+    #[serde(default = "default_auto_memory")]
+    pub(crate) auto_memory: bool,
+}
+
+impl Default for GameConfig {
+    fn default() -> Self {
+        Self {
+            java_path: None,
+            jvm_args: None,
+            extra_args: None,
+            env: BTreeMap::new(),
+            auto_memory: default_auto_memory(),
+        }
+    }
+}
+
+fn default_auto_memory() -> bool {
+    true
 }
 
 /// A game record (instance/version entry).
